@@ -1,0 +1,105 @@
+{
+  "date": "2026-11-01",
+  "source": "fresh locally executed physical trajectories from this publication checkout",
+  "episodes": [
+    {
+      "status": "passed",
+      "rows": 291,
+      "fps": 20,
+      "native_feature_count": 48,
+      "mapped_value_checks": 11931,
+      "source_sha256_verified": true,
+      "state_float64_to_float32_max_absolute_error": 0.0,
+      "videos": {
+        "observation.images.front": {
+          "decoded_frames": 291,
+          "mean_mse": 5.43205369215241,
+          "psnr_db": 40.78116306868979,
+          "maximum_absolute_channel_error": 122.0,
+          "encoding_is_lossy": true
+        },
+        "observation.images.side": {
+          "decoded_frames": 291,
+          "mean_mse": 6.0459707889360255,
+          "psnr_db": 40.31614316311679,
+          "maximum_absolute_channel_error": 158.0,
+          "encoding_is_lossy": true
+        }
+      },
+      "official_reader_sample_indices": [
+        0,
+        38,
+        93,
+        145,
+        223,
+        290
+      ],
+      "action_window_and_padding_verified": true,
+      "terminal_observation_verified": true,
+      "action_state_mean_std_verified": true,
+      "scope": "LeRobot v3 training view with native dense GT features plus a byte-identical HDF5 archive for exact source-layout access.",
+      "task_template": "pick_and_place"
+    },
+    {
+      "status": "passed",
+      "rows": 274,
+      "fps": 20,
+      "native_feature_count": 41,
+      "mapped_value_checks": 9590,
+      "source_sha256_verified": true,
+      "state_float64_to_float32_max_absolute_error": 0.0,
+      "videos": {
+        "observation.images.front": {
+          "decoded_frames": 274,
+          "mean_mse": 5.532414474626528,
+          "psnr_db": 40.701656519576986,
+          "maximum_absolute_channel_error": 120.0,
+          "encoding_is_lossy": true
+        }
+      },
+      "official_reader_sample_indices": [
+        0,
+        38,
+        93,
+        137,
+        223,
+        273
+      ],
+      "action_window_and_padding_verified": true,
+      "terminal_observation_verified": true,
+      "action_state_mean_std_verified": true,
+      "scope": "LeRobot v3 training view with native dense GT features plus a byte-identical HDF5 archive for exact source-layout access.",
+      "task_template": "stack"
+    },
+    {
+      "status": "passed",
+      "rows": 218,
+      "fps": 20,
+      "native_feature_count": 38,
+      "mapped_value_checks": 6976,
+      "source_sha256_verified": true,
+      "state_float64_to_float32_max_absolute_error": 0.0,
+      "videos": {
+        "observation.images.front": {
+          "decoded_frames": 218,
+          "mean_mse": 5.553619463509376,
+          "psnr_db": 40.68504242486427,
+          "maximum_absolute_channel_error": 128.0,
+          "encoding_is_lossy": true
+        }
+      },
+      "official_reader_sample_indices": [
+        0,
+        38,
+        93,
+        109,
+        217
+      ],
+      "action_window_and_padding_verified": true,
+      "terminal_observation_verified": true,
+      "action_state_mean_std_verified": true,
+      "scope": "LeRobot v3 training view with native dense GT features plus a byte-identical HDF5 archive for exact source-layout access.",
+      "task_template": "push"
+    }
+  ]
+}

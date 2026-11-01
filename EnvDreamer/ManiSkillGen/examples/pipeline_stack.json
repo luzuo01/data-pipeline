@@ -1,0 +1,126 @@
+{
+  "schema_version": "scene_spec_v1",
+  "backend": "maniskill3",
+  "seed": 0,
+  "scene": {
+    "template": "tabletop",
+    "workspace": {
+      "size": [
+        0.8,
+        0.8,
+        0.5
+      ],
+      "table_height": 0.75
+    },
+    "objects": [
+      {
+        "id": "cube",
+        "asset": "primitive_cube",
+        "shape": "box",
+        "size": [
+          0.04,
+          0.04,
+          0.04
+        ],
+        "pose": [
+          -0.1,
+          0.0,
+          0.77
+        ],
+        "color": [
+          0.85,
+          0.1,
+          0.1,
+          1.0
+        ],
+        "dynamic": true
+      },
+      {
+        "id": "cube_2",
+        "asset": "primitive_cube",
+        "shape": "box",
+        "size": [
+          0.04,
+          0.04,
+          0.04
+        ],
+        "pose": [
+          0.0,
+          0.0,
+          0.77
+        ],
+        "color": [
+          0.85,
+          0.1,
+          0.1,
+          1.0
+        ],
+        "dynamic": true
+      },
+      {
+        "id": "target",
+        "asset": "primitive_target",
+        "shape": "box",
+        "size": [
+          0.08,
+          0.08,
+          0.01
+        ],
+        "pose": [
+          0.22,
+          0.12,
+          0.755
+        ],
+        "color": [
+          0.1,
+          0.2,
+          0.9,
+          1.0
+        ],
+        "dynamic": false
+      }
+    ]
+  },
+  "robot": {
+    "type": "panda",
+    "base_pose": [
+      -0.4,
+      0.0,
+      0.0
+    ],
+    "control_mode": "pd_ee_delta_pose"
+  },
+  "task": {
+    "template": "stack",
+    "object_id": "cube_2",
+    "target_id": "cube"
+  },
+  "success": [
+    {
+      "predicate": "object_on_object",
+      "object_id": "cube_2",
+      "target_id": "cube",
+      "position_tolerance": 0.03
+    }
+  ],
+  "cameras": {
+    "front": {
+      "position": [
+        1.1,
+        0.8,
+        1.35
+      ],
+      "look_at": [
+        0.0,
+        0.0,
+        0.85
+      ],
+      "resolution": [
+        160,
+        120
+      ]
+    }
+  },
+  "randomization": {},
+  "description": "Panda stack two cubes"
+}

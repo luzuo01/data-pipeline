@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>具身数据管线 · UE5 场景、轨迹与真值</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#10151d;color:#e8edf4;font:14px system-ui,sans-serif}main{height:100dvh;padding:20px;display:flex;flex-direction:column;gap:14px}h1{font-size:22px;margin:0}header{display:flex;justify-content:space-between;align-items:center;gap:12px}.grid{display:grid;grid-template-columns:310px minmax(0,1fr);gap:16px;flex:1;min-height:0}.panel{background:#192230;border:1px solid #2d3b4d;border-radius:12px;padding:16px;min-width:0}.inputs{overflow:auto}.inline-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.dataset-card{padding:10px 0;border-bottom:1px solid #304156}a{color:#8dbbff;margin-right:12px}progress{width:100%;height:12px}.inputs .meta{font-size:12px;line-height:1.4;margin:8px 0}.workspace{display:grid;grid-template-rows:minmax(180px,48%) minmax(0,1fr);gap:12px;min-height:0}.preview-box{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;position:relative;overflow:hidden}img,video{max-width:100%;max-height:calc(100% - 26px);object-fit:contain;border-radius:7px}img:not([src]){display:none}.caption{color:#9eaec2;font-size:12px;margin-top:6px}label{display:block;margin:12px 0 6px}textarea,input,select{box-sizing:border-box;width:100%;background:#0f151e;color:inherit;border:1px solid #3a4a5e;border-radius:7px;padding:9px}textarea{height:90px;resize:vertical;font:inherit}input[type=checkbox]{width:auto;accent-color:#4b8df8}button{border:1px solid #415574;border-radius:7px;background:#263950;color:white;padding:8px 12px;cursor:pointer}button.primary{background:#397be0;width:100%;margin-top:16px}button:disabled{opacity:.5;cursor:wait}button.active{background:#397be0}.meta{color:#a9b8ca;line-height:1.6}.report{display:flex;flex-direction:column;min-height:0}.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}.tabcontent{overflow:auto;min-height:0;flex:1}pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;font:12px/1.5 Consolas,monospace}#json-input{font:12px Consolas,monospace;height:180px}.checks{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.badge{padding:5px 8px;border-radius:5px;background:#29394c}.pass{color:#8ce5b4;background:#183d32}.fail{color:#ffb5ad;background:#512c30}.unknown{color:#b8c6d8}ol{padding-left:22px}.issue{color:#ffb5ad;margin:8px 0}.audit p{margin:4px 0;font-size:13px}.audit{padding:9px 0;border-bottom:1px solid #304156}#status{overflow-wrap:anywhere}summary{cursor:pointer;margin-top:14px}#refresh{white-space:nowrap}@media(max-width:760px){main{height:auto;min-height:100dvh;padding:12px}.grid{grid-template-columns:1fr}.workspace{grid-template-rows:300px 450px}header{align-items:flex-start}}
+</style>
+</head>
+<body><main>
+<header><h1>具身数据管线 <span class="meta">/ UE5 场景 · 轨迹 · 真值</span></h1><button id="refresh">刷新截图</button></header>
+<div class="grid">
+<section class="panel inputs">
+<label for="prompt">任务描述</label><textarea id="prompt">生成一个 Franka 机械臂在桌面上把红色方块放到蓝色目标区域的场景。</textarea>
+<div class="inline-fields"><div><label for="seed">随机种子</label><input id="seed" type="number" value="0" step="1"></div><div><label for="episodes">数据条数</label><select id="episodes"><option selected>1</option><option>3</option><option>5</option><option>10</option></select></div></div>
+<label><input id="auto-repair" type="checkbox" checked> 自动修复允许移动的物体位置</label>
+<details><summary>场景修复设置</summary><label for="attempts">最多修复次数</label><select id="attempts"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+<p class="meta">保留物体、任务与成功阈值。锁定位置不会被修复或随机扰动。PORTAL-Trace 使用注册场景，暂不支持布局修复。</p></details>
+<details><summary>直接使用 SceneSpec JSON</summary><textarea id="json-input" placeholder="留空时使用任务描述；可粘贴场景 JSON 测试验证与修复"></textarea></details>
+<button id="generate" class="primary">生成 · 验证 · 修复</button>
+<button id="pipeline" class="primary">生成成功轨迹与真值数据</button>
+<p class="meta" id="status" role="status" aria-live="polite">等待生成</p>
+<p class="meta">默认使用 Unreal Engine 5.6.1 + Chaos + Remote Control；支持 Franka/Panda、Sawyer、UR5e 的桌面抓取与堆叠。只有在 SceneSpec 明确指定 backend=maniskill3 时才使用 ManiSkill3。</p>
+</section>
+<div class="workspace">
+<section class="panel preview-box"><img id="preview" alt="通过验证的 UE5 场景"><video id="video-preview" controls playsinline hidden></video><div id="preview-note" class="caption">生成通过后显示 UE5 编辑器截图或白模视频</div></section>
+<section class="panel report">
+<nav class="tabs" aria-label="场景详情"><button data-tab="summary" class="active">验证结果</button><button data-tab="repair">修复记录</button><button data-tab="spec">SceneSpec</button><button data-tab="planner">解析信息</button><button data-tab="dataset">轨迹与数据</button><button data-tab="raw">完整报告</button></nav>
+<div class="tabcontent" id="summary"><p class="meta">等待场景检查</p></div>
+<div class="tabcontent" id="dataset" hidden><p class="meta">生成成功轨迹后可下载 LeRobot v3 数据集，并查看 UE5 白模视频。</p></div><div class="tabcontent" id="repair" hidden></div><pre class="tabcontent" id="spec" hidden></pre><pre class="tabcontent" id="planner" hidden></pre><pre class="tabcontent" id="raw" hidden></pre>
+</section></div></div></main>
+<script>
+const $=id=>document.getElementById(id);
+const labels={schema:'结构',assets:'资产',geometry:'静态几何',task_feasibility:'任务必要条件',environment_reset:'仿真初始化',physics_stability:'短时稳定性',preview_render:'真实渲染',finite_state:'状态数值',runtime_bounds:'运行时边界',contact_penetration:'物体接触穿透',collision_free_ik:'无碰撞 IK',task_rollout:'任务执行',robot_self_collision:'机器人自碰撞'};
+let previewUrl=null, currentScene=null, scenePrompt=null, pipelineBusy=false;
+for(const button of document.querySelectorAll('[data-tab]')) button.onclick=()=>{for(const other of document.querySelectorAll('[data-tab]')){other.classList.toggle('active',other===button);$(other.dataset.tab).hidden=other!==button;}};
+function paragraph(parent,text,className='meta'){const p=document.createElement('p');p.className=className;p.textContent=text;parent.append(p);}
+function setPreview(url, kind, note){
+ const img=$('preview'), video=$('video-preview');
+ if(kind==='video'){img.removeAttribute('src');img.hidden=true;video.hidden=false;video.src=url+'?t='+Date.now();video.load();}
+ else{video.pause();video.removeAttribute('src');video.hidden=true;img.hidden=false;if(url)img.src=url+'?t='+Date.now();else img.removeAttribute('src');}
+ $('preview-note').textContent=note;
+}
+function show(data){
+ const v=data.validation||{};
+ const executed=data.trajectory_validation?.task_rollout===true;
+ if(v.ok && data.scene_spec){currentScene=data.scene_spec;scenePrompt=data.scene_spec.planner?.user_prompt||null;}else{currentScene=null;}
+ $('spec').textContent=JSON.stringify(data.scene_spec||v.normalized_spec||{},null,2);
+ $('planner').textContent=JSON.stringify(data.planner||data.scene_spec?.planner||{},null,2);
+ $('raw').textContent=JSON.stringify(executed?{scene_validation:v,trajectory_validation:data.trajectory_validation,gt_validation:data.gt_validation}:v,null,2);
+ $('summary').replaceChildren(); const badges=document.createElement('div');badges.className='checks';
+ const checks={...v.checks};if(executed)checks.task_rollout=true;if(data.gt_validation?.temporal_alignment)checks.preview_render=true;
+ for(const [key,value] of Object.entries(checks)){const badge=document.createElement('span');badge.className='badge '+(value===true?'pass':value===false?'fail':'unknown');badge.textContent=(labels[key]||key)+' · '+(value===true?'通过':value===false?'失败':'未测试');badges.append(badge);}
+ $('summary').append(badges);
+ for(const error of v.errors||[]) paragraph($('summary'),error,'issue');
+ paragraph($('summary'),executed?`场景预检与真实任务执行通过；末尾连续 ${data.trajectory_validation.final_success_hold_frames} 帧满足成功判据。`:v.ok?'当前检查通过；不代表机械臂已完成任务。':'场景未通过检查，不能作为已验证场景使用。');
+ if((data.scene_spec||{}).backend==='portal_trace') paragraph($('summary'),'PORTAL-Trace：UE5 侧使用已导入 StaticMesh 进行可视化，物理与任务验证来自 MuJoCo/robosuite；当前 Stack 页面流程还不导出 PORTAL LeRobot 轨迹。');
+ if(v.runtime) paragraph($('summary'),'运行检查：'+v.runtime.status+' · '+v.runtime.steps+' 步');
+ for(const warning of v.warnings||[]) paragraph($('summary'),(executed?'场景预检阶段提示：':'')+warning);
+ if(v.audit_path) paragraph($('summary'),'失败审计：'+v.audit_path);
+ $('repair').replaceChildren(); const repair=v.repair||{};
+ paragraph($('repair'),'修复状态：'+(repair.status||'未执行')+' · 已修复 '+(repair.attempts||0)+' 次 · '+(repair.stop_reason||''));
+ for(const entry of repair.history||[]){const row=document.createElement('div');row.className='audit';paragraph(row,`第 ${entry.attempt} 轮 · ${entry.phase||'静态验证'} · ${entry.ok===true?'通过':entry.ok===false?'失败':'记录'}`);for(const patch of entry.patches||[]) paragraph(row,`${patch.object_id}: ${JSON.stringify(patch.before)} → ${JSON.stringify(patch.after)}`);for(const issue of entry.issues||entry.probe?.issues||[]) paragraph(row,issue.message,'issue');$('repair').append(row);}
+ previewUrl=data.preview_url||null;
+ const backend=(data.scene_spec||{}).backend||data.manifest?.execution_backend||data.manifest?.runtime_backend||'';
+ if(backend) paragraph($('summary'),'执行后端：'+backend+(backend==='ue5'?' · Unreal Engine 5.6.1 + Chaos':'') );
+ if(previewUrl){setPreview(previewUrl,'image','通过验证的场景 · '+backend);}
+ else{setPreview(null,'image','本次没有可展示的已验证截图');}
+}
+$('refresh').onclick=()=>{if(previewUrl){setPreview(previewUrl,'image','刷新后的仿真场景');}else{$('status').textContent='请先生成通过验证的场景。';}};
+$('generate').onclick=async()=>{
+ selectTab('summary');
+ $('generate').disabled=true;$('pipeline').disabled=true;$('status').textContent='规划、验证与仿真中…';
+ try{const body={prompt:$('prompt').value,seed:Number($('seed').value||0),auto_repair:$('auto-repair').checked,max_repair_attempts:Number($('attempts').value),render:true};if($('json-input').value.trim()) body.spec=JSON.parse($('json-input').value);
+ const response=await fetch('/api/maniskill/scene/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ const data=await response.json();show(data);$('status').textContent=response.ok?`检查完成 · ${(data.generation_ms/1000).toFixed(1)} 秒 · 修复 ${data.validation?.repair?.attempts||0} 次`:`未通过：${data.error||'查看验证结果'}`;
+ }catch(error){$('status').textContent=String(error);}finally{$('generate').disabled=false;$('pipeline').disabled=false;}
+};
+
+function selectTab(name){document.querySelector(`[data-tab="${name}"]`).click();}
+function pipelineResult(data){
+ const panel=$('dataset');panel.replaceChildren();
+ const progress=data.progress||{};
+ const names={planning:'解析任务',scene:'生成与验证场景',trajectory:'执行机械臂任务',export:'导出逐帧真值',complete:'完成',partial:'部分完成',failed:'失败',interrupted:'已中断'};
+ paragraph(panel,`${names[data.status]||'运行中'} · ${names[progress.phase]||progress.phase||''} ${progress.skill_phase||''}`);
+ if(data.status==='running'){
+  const bar=document.createElement('progress');
+  const totalFrames=Number(progress.total_frames);
+  const currentFrames=Number(progress.frames);
+  if(Number.isFinite(totalFrames) && totalFrames>0){
+   bar.max=totalFrames;
+   bar.value=Number.isFinite(currentFrames) ? Math.min(Math.max(currentFrames,0),totalFrames) : 0;
+  }
+  panel.append(bar);
+  const count=Number.isFinite(currentFrames) ? currentFrames : (Number.isFinite(Number(progress.control_steps)) ? Number(progress.control_steps) : 0);
+  paragraph(panel,`样本 ${(progress.episode||0)+1} / ${progress.total_episodes||$('episodes').value} · ${count} ${progress.phase==='export'?'帧':'步'}`);
+ }
+ if(data.status==='running' && progress.phase==='ue_render_failed') paragraph(panel,'物理轨迹和 LeRobot v3 已生成，UE 白模视频渲染失败；可保留数据并重试 UE 渲染。','issue');
+ if(data.error)paragraph(panel,data.error,'issue');
+ if(data.successful_episodes!==undefined)paragraph(panel,`成功 ${data.successful_episodes} / ${data.requested_episodes} · ${data.duration_s||0} 秒`);
+ for(const episode of data.episodes||[]){
+  const row=document.createElement('div');row.className='dataset-card';
+  paragraph(row,`样本 ${episode.index+1} · seed ${episode.seed} · ${episode.num_actions} 动作 / ${episode.num_observations} 观测 · ${(episode.file_size_bytes/1048576).toFixed(1)} MB`);
+  const view=document.createElement('button');view.textContent=episode.white_model_video_url?'播放 UE 白模视频':'播放轨迹';view.onclick=()=>{previewUrl=episode.preview_url;if(episode.white_model_video_url)setPreview(episode.white_model_video_url,'video','UE5 白模逐帧回放');else setPreview(previewUrl,'image','真实执行轨迹回放 · 每个观测同步导出真值');};row.append(view);
+  for(const [label,url] of [['下载 LeRobot v3',episode.download_url],['导出说明 JSON',episode.metadata_url]]){const a=document.createElement('a');a.textContent=label;a.href=url;a.target='_blank';row.append(a);}panel.append(row);
+  if(episode.ue_render_error) paragraph(row,`UE 白模视频待重试：${episode.ue_render_error}`,'issue');
+ }
+ for(const failure of data.failed_episodes||[])paragraph(panel,`样本 ${failure.index+1} 失败：${failure.error}`,'issue');
+ paragraph(panel,'LeRobot v3 数据集是最终发布格式：状态、动作、RGB 视频，以及深度、法线、实例/语义分割和 valid mask 都作为原生字段写入；相机内外参、物体/关节/末端位姿等完整引擎真值也随数据集保存。extras/source_episode.h5 仅是可选的无损源归档，便于追溯原始布局，不影响 LeRobot v3 读取。UE 白模视频按同一条物理轨迹逐帧回放。');
+ if(data.episodes?.length && data.status!=='running'){
+  const first=data.episodes[0];
+  if(first.scene_spec && first.source_validation)show({scene_spec:first.scene_spec,validation:first.source_validation,preview_url:first.preview_url,trajectory_validation:first.trajectory_validation,gt_validation:first.gt_validation});
+  previewUrl=first.preview_url;if(first.white_model_video_url)setPreview(first.white_model_video_url,'video','成功轨迹对应的 UE5 白模视频');else setPreview(previewUrl,'image','成功轨迹回放 · LeRobot v3 数据可下载');
+ }
+}
+async function pollPipeline(id){
+ try{const response=await fetch('/api/maniskill/pipeline/'+id);const data=await response.json();if(!response.ok)throw new Error(data.error||'查询失败');pipelineResult(data);
+  pipelineBusy=data.status==='running';$('generate').disabled=pipelineBusy;$('pipeline').disabled=pipelineBusy;
+  $('status').textContent=pipelineBusy?'数据生成中，可在右侧查看进度。':`数据生成结束：${data.successful_episodes||0} 条成功，${data.failed_episodes?.length||0} 条失败。`;
+  if(pipelineBusy)setTimeout(()=>pollPipeline(id),1000);
+ }catch(error){$('status').textContent=String(error)+'；刷新页面可重新查询任务状态。';$('generate').disabled=false;$('pipeline').disabled=false;}
+}
+$('pipeline').onclick=async()=>{
+ $('generate').disabled=true;$('pipeline').disabled=true;selectTab('dataset');
+ try{
+  const body={prompt:$('prompt').value,seed:Number($('seed').value||0),num_episodes:Number($('episodes').value),auto_repair:$('auto-repair').checked,max_repair_attempts:Number($('attempts').value),render_ue:true};
+  if($('json-input').value.trim())body.spec=JSON.parse($('json-input').value);
+  else if(currentScene && scenePrompt===$('prompt').value){body.spec=currentScene;body.reference_scene=true;}
+  const response=await fetch('/api/maniskill/pipeline/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data=await response.json();if(!response.ok)throw new Error(data.error||'启动失败');localStorage.setItem('pipelineRun',data.run_id);pipelineBusy=true;await pollPipeline(data.run_id);
+ }catch(error){$('status').textContent=String(error);$('generate').disabled=false;$('pipeline').disabled=false;}
+};
+async function restorePage(){
+ try{const d=await fetch('/api/maniskill/scene/state').then(r=>r.json());if(d.instance){if(d.last_prompt)$('prompt').value=d.last_prompt;show(d.instance);$('status').textContent='已载入上次通过验证的场景';}}catch{}
+ const savedRun=localStorage.getItem('pipelineRun');if(savedRun){selectTab('dataset');await pollPipeline(savedRun);}
+}
+restorePage();
+</script></body></html>

@@ -1,0 +1,55 @@
+{
+  "name": "Panda tabletop manipulation",
+  "description": "A minimal UE5 tabletop scene with a Franka Panda and a green cube goal.",
+  "units": "centimeters",
+  "rooms": {
+    "panda_workspace": {
+      "name": "Panda workspace",
+      "type": "office",
+      "purpose": "A compact manipulation workspace",
+      "bounds": {"min": [0, 0, 0], "max": [500, 400, 300]},
+      "center": [250, 200, 150],
+      "camera": {
+        "position": [170, 20, 185],
+        "rotation": [-21, 59, 0],
+        "description": "Front view of the Panda, table, cube and target"
+      },
+      "floor_color": [0.25, 0.25, 0.25, 1.0],
+      "wall_color": [0.75, 0.78, 0.82, 1.0],
+      "items": [
+        {
+          "id": "panda_robot",
+          "asset": "franka_panda",
+          "position": [250, 200, 75],
+          "rotation": [0, 0, 0],
+          "scale": [1.0, 1.0, 1.0],
+          "color": [1.0, 1.0, 1.0, 1.0]
+        },
+        {
+          "id": "work_table",
+          "asset": "/Engine/BasicShapes/Cube.Cube",
+          "position": [280, 200, 72.5],
+          "rotation": [0, 0, 0],
+          "scale": [1.2, 0.8, 0.05],
+          "color": [0.48, 0.30, 0.15, 1.0]
+        },
+        {
+          "id": "green_cube",
+          "asset": "/Engine/BasicShapes/Cube.Cube",
+          "position": [290, 190, 77],
+          "rotation": [0, 0, 0],
+          "scale": [0.04, 0.04, 0.04],
+          "color": [0.1, 0.8, 0.1, 1.0]
+        },
+        {
+          "id": "blue_target",
+          "asset": "/Engine/BasicShapes/Cube.Cube",
+          "position": [290, 220, 75.1],
+          "rotation": [0, 0, 0],
+          "scale": [0.1, 0.1, 0.002],
+          "color": [0.1, 0.2, 0.9, 1.0]
+        }
+      ]
+    }
+  }
+}

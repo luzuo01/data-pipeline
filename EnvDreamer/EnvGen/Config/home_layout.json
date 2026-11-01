@@ -1,0 +1,181 @@
+{
+  "name": "\u7b80\u6d01\u5ba2\u5385\u5e03\u5c40",
+  "description": "\u4e00\u4e2a\u7b80\u6d01\u660e\u4eae\u7684\u5ba2\u5385\uff0c\u4ec5\u4fdd\u7559\u4e2d\u95f4\u7684\u9ed1\u8272\u5496\u5561\u684c\u3001\u56db\u628a\u7070\u8272\u6905\u5b50\u548c\u5468\u56f4\u7684\u7c89\u8272\u5899\u58c1\u3002",
+  "units": "centimeters",
+  "rooms": {
+    "living_room": {
+      "name": "\u5ba2\u5385",
+      "type": "living",
+      "purpose": "\u7528\u4e8e\u4f11\u606f\u3001\u4f1a\u5ba2\u548c\u65e5\u5e38\u4ea4\u6d41\u7684\u7b80\u6d01\u5ba2\u5385",
+      "bounds": {
+        "min": [
+          0,
+          0,
+          0
+        ],
+        "max": [
+          500,
+          400,
+          300
+        ]
+      },
+      "center": [
+        250,
+        200,
+        150
+      ],
+      "camera": {
+        "position": [
+          250,
+          -500,
+          220
+        ],
+        "rotation": [
+          0,
+          90,
+          0
+        ],
+        "description": "\u4ece\u5ba2\u5385\u6b63\u9762\u89c2\u5bdf\u56db\u628a\u7070\u8272\u6905\u5b50\u3001\u4e2d\u95f4\u7684\u9ed1\u8272\u5496\u5561\u684c\u548c\u5468\u56f4\u7684\u7c89\u8272\u5899\u58c1"
+      },
+      "floor_color": [
+        0.85,
+        0.85,
+        0.82,
+        1.0
+      ],
+      "wall_color": [
+        1.0,
+        0.6,
+        0.7,
+        1.0
+      ],
+      "items": [
+        {
+          "id": "living_chair_1",
+          "asset": "bp_chair",
+          "position": [
+            150,
+            120,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "color": [
+            0.5,
+            0.5,
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "id": "living_chair_2",
+          "asset": "bp_chair",
+          "position": [
+            350,
+            120,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "color": [
+            0.5,
+            0.5,
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "id": "living_chair_3",
+          "asset": "bp_chair",
+          "position": [
+            150,
+            280,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "color": [
+            0.5,
+            0.5,
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "id": "living_chair_4",
+          "asset": "bp_chair",
+          "position": [
+            350,
+            280,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "color": [
+            0.5,
+            0.5,
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "id": "living_coffee_table_1",
+          "asset": "coffee_table",
+          "position": [
+            250,
+            200,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      ]
+    }
+  }
+}

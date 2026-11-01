@@ -1,0 +1,17 @@
+# Core validation and fallback preview
+jsonschema>=4.20
+Pillow>=10
+
+# Web UI (optional for library-only use)
+fastapi>=0.115
+uvicorn[standard]>=0.34
+
+# Install these in a dedicated ManiSkill3 environment when rendering real tasks.
+# mani-skill>=3.0
+# sapien>=3.0
+# gymnasium>=0.29
+
+# Trajectory generation and aligned ground truth export
+numpy>=1.24
+scipy>=1.10
+h5py>=3.8

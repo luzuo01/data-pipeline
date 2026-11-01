@@ -1,0 +1,13 @@
+{
+  "primitive_cube": {"kind": "primitive", "shape": "box", "interactive": true, "collision": "box", "visual": "box"},
+  "primitive_target": {"kind": "primitive", "shape": "target", "interactive": false, "collision": "box", "visual": "box"},
+  "primitive_sphere": {"kind": "primitive", "shape": "sphere", "interactive": true, "collision": "sphere", "visual": "sphere"},
+  "primitive_cylinder": {"kind": "primitive", "shape": "cylinder", "interactive": true, "collision": "cylinder", "visual": "cylinder"},
+  "franka": {"kind": "robot", "type": "franka", "interactive": true, "collision": "urdf", "visual": "urdf"},
+  "portal_panda": {"kind": "robot", "type": "Panda", "backend": "portal_trace", "interactive": true, "collision": "mjcf", "visual": "mjcf", "asset_manifest": "portal_trace_robots.json"},
+  "portal_sawyer": {"kind": "robot", "type": "Sawyer", "backend": "portal_trace", "interactive": true, "collision": "mjcf", "visual": "mjcf", "asset_manifest": "portal_trace_robots.json"},
+  "portal_iiwa": {"kind": "robot", "type": "IIWA", "backend": "portal_trace", "interactive": true, "collision": "mjcf", "visual": "mjcf", "asset_manifest": "portal_trace_robots.json"},
+  "portal_kinova3": {"kind": "robot", "type": "Kinova3", "backend": "portal_trace", "interactive": true, "collision": "mjcf", "visual": "mjcf", "asset_manifest": "portal_trace_robots.json"},
+  "portal_xarm7": {"kind": "robot", "type": "XArm7", "backend": "portal_trace", "interactive": true, "collision": "mjcf", "visual": "mjcf", "asset_manifest": "portal_trace_robots.json"},
+  "portal_ur5e": {"kind": "robot", "type": "UR5e", "backend": "portal_trace", "interactive": true, "collision": "mjcf", "visual": "mjcf", "asset_manifest": "portal_trace_robots.json"}
+}

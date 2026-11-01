@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://envdreamer.local/schemas/scene_spec_v1.json",
+  "title": "EnvDreamer Dual-Backend SceneSpec v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "backend", "seed", "scene", "robot", "task", "success", "cameras"],
+  "properties": {
+    "schema_version": {"const": "scene_spec_v1"},
+    "backend": {"enum": ["maniskill3", "ue5", "portal_trace"]},
+    "seed": {"type": "integer"},
+    "scene": {
+      "type": "object",
+      "required": ["template", "workspace", "objects"],
+      "properties": {
+        "template": {"enum": ["tabletop", "tabletop_pick_place", "tabletop_push", "tabletop_stack", "portal_trace"]},
+        "workspace": {
+          "type": "object",
+          "required": ["size", "table_height"],
+          "properties": {
+            "size": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number", "exclusiveMinimum": 0}},
+            "table_height": {"type": "number", "minimum": 0}
+          }
+        },
+        "objects": {"type": "array", "items": {"$ref": "#/$defs/object"}}
+      }
+    },
+    "robot": {
+      "type": "object",
+      "required": ["type", "base_pose", "control_mode"],
+      "properties": {
+        "type": {"enum": ["franka", "panda", "Panda", "Sawyer", "IIWA", "Kinova3", "XArm7", "UR5e"]},
+        "base_pose": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}},
+        "control_mode": {"enum": ["pd_ee_delta_pose", "pd_joint_pos", "pd_joint_delta_pos", "pd_ee_pose", "robosuite_default", "ue5_joint_pos"]}
+      }
+    },
+    "task": {"type": "object", "required": ["template"], "properties": {"template": {"type": "string"}}},
+    "success": {"type": "array", "items": {"type": "object", "required": ["predicate"]}},
+    "cameras": {"type": "object", "minProperties": 1},
+    "randomization": {"type": "object"}
+  },
+  "$defs": {
+    "object": {
+      "type": "object",
+      "required": ["id", "asset", "shape", "size", "pose", "color", "dynamic"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "asset": {"type": "string", "minLength": 1},
+        "shape": {"enum": ["box", "sphere", "cylinder", "target"]},
+        "size": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number", "exclusiveMinimum": 0}},
+        "pose": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}},
+        "color": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number", "minimum": 0, "maximum": 1}},
+        "dynamic": {"type": "boolean"}
+      }
+    }
+  }
+}

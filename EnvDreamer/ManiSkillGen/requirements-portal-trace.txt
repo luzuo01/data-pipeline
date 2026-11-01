@@ -1,0 +1,5 @@
+# Install in the isolated .portal_env runtime used by portal_trace_backend.py.
+mujoco==3.3.2
+robosuite==1.5.2
+numpy<2
+Pillow>=10

@@ -1,0 +1,40 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# Python runtimes and caches
+__pycache__/
+*.py[cod]
+.venv/
+.venv-*/
+.portal_env/
+.portal_uv_env/
+.pytest_cache/
+*.egg-info/
+# Generated datasets, logs and reports
+outputs/
+_samples/
+.data_engine/
+_validation/
+*.log
+*.h5
+*.parquet
+*.zip
+# External source / engine and editor build products
+external/
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+.vs/
+*.sln
+*.suo
+_public_shots/
+# Bootstrap restores these assets from the upstream project
+EnvDreamer/EnvGen/Plugins/
+EnvDreamer/EnvGen/Content/*
+!EnvDreamer/EnvGen/Content/Robots/
+EnvDreamer/EnvGen/Content/Robots/*
+!EnvDreamer/EnvGen/Content/Robots/FrankaPanda/

@@ -1,0 +1,108 @@
+{
+  "schema_version": "portal_trace_robot_assets_v1",
+  "source": "PORTAL-Trace registry/embodiments.json",
+  "robots": {
+    "Panda": {
+      "asset_id": "portal_panda",
+      "kind": "robot",
+      "family": "Panda",
+      "robosuite_robot": "Panda",
+      "asset_source": "robosuite",
+      "dof": 7,
+      "chain_length_m": 1.318762332715346,
+      "mjcf_sha256": "8bdd92fbbea7afce4a5819d0c123cfbf45fe4d411e33da9e07dbf4064166b59b",
+      "mjcf_relative_path": "robosuite/models/assets/robots/panda/robot.xml",
+      "asset_directory_relative_path": "robosuite/models/assets/robots/panda",
+      "supports_tasks": [
+        "Stack"
+      ],
+      "source_repository": "https://github.com/liu-yang-maker/PORTAL-Trace",
+      "source_note": "PORTAL-Trace references the native robosuite robot MJCF; meshes are supplied by the robosuite runtime."
+    },
+    "Sawyer": {
+      "asset_id": "portal_sawyer",
+      "kind": "robot",
+      "family": "Sawyer",
+      "robosuite_robot": "Sawyer",
+      "asset_source": "robosuite",
+      "dof": 7,
+      "chain_length_m": 1.4293962294301679,
+      "mjcf_sha256": "ca96f20178a29a71002ecacd6076e2601635adc565ca3e64947c338cfe833c1c",
+      "mjcf_relative_path": "robosuite/models/assets/robots/sawyer/robot.xml",
+      "asset_directory_relative_path": "robosuite/models/assets/robots/sawyer",
+      "supports_tasks": [
+        "Stack"
+      ],
+      "source_repository": "https://github.com/liu-yang-maker/PORTAL-Trace",
+      "source_note": "PORTAL-Trace references the native robosuite robot MJCF; meshes are supplied by the robosuite runtime."
+    },
+    "IIWA": {
+      "asset_id": "portal_iiwa",
+      "kind": "robot",
+      "family": "IIWA",
+      "robosuite_robot": "IIWA",
+      "asset_source": "robosuite",
+      "dof": 7,
+      "chain_length_m": 1.2946805052457815,
+      "mjcf_sha256": "261003f18edf70805f80454b03ec76417f095bf2e903528267350fb68013f361",
+      "mjcf_relative_path": "robosuite/models/assets/robots/iiwa/robot.xml",
+      "asset_directory_relative_path": "robosuite/models/assets/robots/iiwa",
+      "supports_tasks": [
+        "Stack"
+      ],
+      "source_repository": "https://github.com/liu-yang-maker/PORTAL-Trace",
+      "source_note": "PORTAL-Trace references the native robosuite robot MJCF; meshes are supplied by the robosuite runtime."
+    },
+    "Kinova3": {
+      "asset_id": "portal_kinova3",
+      "kind": "robot",
+      "family": "Kinova3",
+      "robosuite_robot": "Kinova3",
+      "asset_source": "robosuite",
+      "dof": 7,
+      "chain_length_m": 1.1877633623402926,
+      "mjcf_sha256": "3d5bdb716d3f89dab8abd5daeb76434f32395a03f76ba27ae5b958c968478606",
+      "mjcf_relative_path": "robosuite/models/assets/robots/kinova3/robot.xml",
+      "asset_directory_relative_path": "robosuite/models/assets/robots/kinova3",
+      "supports_tasks": [
+        "Stack"
+      ],
+      "source_repository": "https://github.com/liu-yang-maker/PORTAL-Trace",
+      "source_note": "PORTAL-Trace references the native robosuite robot MJCF; meshes are supplied by the robosuite runtime."
+    },
+    "XArm7": {
+      "asset_id": "portal_xarm7",
+      "kind": "robot",
+      "family": "XArm7",
+      "robosuite_robot": "XArm7",
+      "asset_source": "robosuite",
+      "dof": 7,
+      "chain_length_m": 1.1138862279992638,
+      "mjcf_sha256": "abfcc888d02e8f1daa9a28557dfd4625fa3440ea44d0bf7bc53adfaac9b0caa1",
+      "mjcf_relative_path": "robosuite/models/assets/robots/xarm7/robot.xml",
+      "asset_directory_relative_path": "robosuite/models/assets/robots/xarm7",
+      "supports_tasks": [
+        "Stack"
+      ],
+      "source_repository": "https://github.com/liu-yang-maker/PORTAL-Trace",
+      "source_note": "PORTAL-Trace references the native robosuite robot MJCF; meshes are supplied by the robosuite runtime."
+    },
+    "UR5e": {
+      "asset_id": "portal_ur5e",
+      "kind": "robot",
+      "family": "UR5e",
+      "robosuite_robot": "UR5e",
+      "asset_source": "robosuite",
+      "dof": 6,
+      "chain_length_m": 1.4627313795989665,
+      "mjcf_sha256": "f1cb33d9c760cf027d9c6125a58569b8a006cf324b97d6d806dcd93959ccda39",
+      "mjcf_relative_path": "robosuite/models/assets/robots/ur5e/robot.xml",
+      "asset_directory_relative_path": "robosuite/models/assets/robots/ur5e",
+      "supports_tasks": [
+        "Stack"
+      ],
+      "source_repository": "https://github.com/liu-yang-maker/PORTAL-Trace",
+      "source_note": "PORTAL-Trace references the native robosuite robot MJCF; meshes are supplied by the robosuite runtime."
+    }
+  }
+}

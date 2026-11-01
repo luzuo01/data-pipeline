@@ -1,0 +1,4 @@
+# Fixed source revision used by the converter and validated local environment.
+lerobot @ git+https://github.com/huggingface/lerobot.git@dd5313e305ff7aaa5b6c7b4769d1b26650ce250b
+h5py>=3.8
+av>=15,<16

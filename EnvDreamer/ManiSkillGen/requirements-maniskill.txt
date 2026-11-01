@@ -1,0 +1,6 @@
+# Install this in a dedicated ManiSkill3 environment (Linux/WSL2 is preferred
+# for GPU rendering; Windows support depends on the local SAPIEN build).
+mani_skill==3.0.1
+# This CPU wheel is verified on the current Windows/Python 3.11 setup. The
+# newer 2.14.1+cpu wheel fails to initialize c10.dll on this machine.
+torch==2.7.1
