@@ -175,11 +175,9 @@ class SceneSpecPlanner:
         }
         robot = next((value for alias, value in robot_aliases.items() if alias in text), "franka")
         spec["robot"]["type"] = robot
-        # UE5 is the default execution backend for every robot with a native
-        # actor in EnvGen.  This includes the existing Franka/Panda actor;
-        # ManiSkill remains available only when a SceneSpec explicitly asks
-        # for backend=maniskill3.
-        if robot in {"Sawyer", "UR5e", "franka"}:
+        # Franka and Panda share the verified physical backend. Other native
+        # robots remain explicit experimental UE-only choices.
+        if robot in {"Sawyer", "UR5e"}:
             spec["backend"] = "ue5"
             spec["robot"]["control_mode"] = "ue5_joint_pos"
 
@@ -323,21 +321,22 @@ class SceneSpecPlanner:
         # Replacing a failed candidate with a new template would change user intent.
         normalized = dict(candidate)
         normalized["seed"] = int(seed)
-        # Natural-language requests for robots that have native EnvGen actors
-        # are executed in UE5 by default.  This prevents an LLM response that
-        # happened to choose the historical ManiSkill backend from producing a
-        # SAPIEN screenshot in the UE5-only web workflow.  An explicit
-        # ``maniskill3`` token remains an opt-in compatibility escape hatch.
+        # Resolve equivalent Panda names consistently, including model output.
+        # Explicit UE requests are kept separate from the default physics path.
         robot_value = str(normalized.get("robot", {}).get("type", "")).lower() if isinstance(normalized.get("robot"), dict) else ""
         prompt_lower = str(prompt or "").lower()
         explicit_portal = "portal-trace" in prompt_lower or "portal_trace" in prompt_lower
-        native_request = (robot_value == "franka" or
-                          (robot_value == "panda" and ("ue5" in prompt_lower or "unreal" in prompt_lower)) or
+        explicit_ue = "ue5" in prompt_lower or "unreal" in prompt_lower
+        native_request = ((robot_value in {"franka", "panda"} and explicit_ue) or
                           robot_value in {"sawyer", "ur5e", "ur5"})
         if native_request and not explicit_portal and "maniskill3" not in prompt_lower:
             normalized["backend"] = "ue5"
             normalized.setdefault("robot", {})["control_mode"] = "ue5_joint_pos"
             if robot_value == "ur5": normalized["robot"]["type"] = "UR5e"
+        elif robot_value in {"franka", "panda"} and not explicit_portal and normalized.get("backend") != "portal_trace":
+            normalized["backend"] = "maniskill3"
+            if normalized["robot"].get("control_mode") == "ue5_joint_pos":
+                normalized["robot"]["control_mode"] = "pd_joint_pos"
         if errors:
             normalized.setdefault("planner", {})["warnings"] = errors
             normalized["planner"]["source"] = "local_fallback"

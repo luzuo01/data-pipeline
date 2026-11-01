@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 import uuid
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,14 +38,18 @@ class DataEngineService:
         target = self.uploads / f"{import_id}_{safe_name}"
         target.write_bytes(content)
         record = {"import_id": import_id, "path": target, "request": request.model_dump(mode="json")}
+        try:
+            detected = self.detect(target)
+            result = {"import_id": import_id, "filename": safe_name, "bytes": len(content), "format": detected.format.value}
+            if detected.format == ImportFormat.hdf5:
+                result["inspection"] = inspect_hdf5(target)
+            elif detected.format == ImportFormat.zip:
+                result["inspection"] = inspect_zip(target)
+        except (ValueError, OSError, zipfile.BadZipFile) as exc:
+            target.unlink(missing_ok=True)
+            raise ValueError(f"invalid uploaded file: {exc}") from exc
         with self._lock:
             self._imports[import_id] = record
-        detected = self.detect(target)
-        result = {"import_id": import_id, "filename": safe_name, "bytes": len(content), "format": detected.format.value}
-        if detected.format == ImportFormat.hdf5:
-            result["inspection"] = inspect_hdf5(target)
-        elif detected.format == ImportFormat.zip:
-            result["inspection"] = inspect_zip(target)
         return result
 
     def register_sample_hdf5(self) -> dict[str, Any]:

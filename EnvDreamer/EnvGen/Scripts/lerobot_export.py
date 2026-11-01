@@ -43,7 +43,9 @@ def convert_hdf5(source: Path, output: Path, *, repo_id: str, task: str | None =
     command = [str(lerobot_python()), str(CONVERTER), str(source), str(output), "--repo-id", repo_id]
     if task:
         command.extend(["--task", task])
-    completed = subprocess.run(command, cwd=str(CONVERTER.parent), capture_output=True, text=True, timeout=900)
+    environment = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    completed = subprocess.run(command, cwd=str(CONVERTER.parent), capture_output=True,
+                               text=True, encoding="utf-8", errors="replace", env=environment, timeout=900)
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "conversion failed").strip()
         raise RuntimeError(f"LeRobot v3 conversion failed ({completed.returncode}): {detail[-4000:]}")

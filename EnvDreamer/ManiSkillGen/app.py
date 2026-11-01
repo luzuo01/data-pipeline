@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 try:  # FastAPI is optional for offline validation and library use.
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI, Request, HTTPException
     from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 except ImportError:  # pragma: no cover - exercised on minimal developer machines
     FastAPI = None  # type: ignore[assignment]
@@ -45,6 +45,33 @@ _worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="scene-runtime")
 _generation_lock = asyncio.Lock()
 _pipeline_jobs: dict[str, Any] = {}
 _pipeline_tasks: set = set()
+
+
+async def _request_object(req):
+    try:
+        body = await req.json()
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise HTTPException(400, "request must contain valid JSON") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(400, "request must be a JSON object")
+    return body
+
+
+def _seed(body):
+    seed = body.get("seed", 0)
+    if type(seed) is not int:
+        raise ValueError("seed must be an integer")
+    return seed
+
+
+def _save_job(job):
+    # Separate from run.json: planning can fail before an episode directory
+    # exists. Atomic replacement prevents a restart from reading partial JSON.
+    path = OUTPUT_DIR / "datasets" / (job["run_id"] + ".job.json")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
+    temporary.replace(path)
 
 
 def _pipeline_public(result):
@@ -84,6 +111,10 @@ def create_app() -> Any:
         raise RuntimeError("FastAPI is required for the ManiSkillGen web API; install fastapi and uvicorn")
     api = FastAPI(title="EnvDreamer UE5 SceneGenerator", version="0.2.0")
 
+    @api.exception_handler(HTTPException)
+    async def request_error(req, exc):
+        return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
+
     @api.get("/", response_class=HTMLResponse)
     async def index():
         return HTMLResponse(TEMPLATE_PATH.read_text(encoding="utf-8"), headers={"Cache-Control": "no-store"})
@@ -100,7 +131,7 @@ def create_app() -> Any:
 
     @api.post("/api/maniskill/scene/validate")
     async def validate(req: Request):
-        body = await req.json()
+        body = await _request_object(req)
         if not isinstance(body, dict):
             return JSONResponse({"error": "request must be a JSON object"}, status_code=400)
         spec = body.get("spec", body)
@@ -108,11 +139,11 @@ def create_app() -> Any:
 
     @api.post("/api/maniskill/scene/repair")
     async def repair(req: Request):
-        body = await req.json()
+        body = await _request_object(req)
         if not isinstance(body, dict):
             return JSONResponse({"error": "request must be a JSON object"}, status_code=400)
         try:
-            report = repair_scene(body.get("spec"), seed=int(body.get("seed", 0)),
+            report = repair_scene(body.get("spec"), seed=_seed(body),
                                   max_attempts=body.get("max_repair_attempts", 3), asset_registry=generator.registry)
             return JSONResponse({"status": "ok" if report["ok"] else "invalid", "validation": report,
                                  "scene_spec": report["normalized_spec"]}, status_code=200 if report["ok"] else 422)
@@ -121,7 +152,7 @@ def create_app() -> Any:
 
     @api.post("/api/maniskill/scene/generate")
     async def generate(req: Request):
-        body = await req.json()
+        body = await _request_object(req)
         if not isinstance(body, dict):
             return JSONResponse({"error": "request must be a JSON object"}, status_code=400)
         if _generation_lock.locked():
@@ -129,7 +160,7 @@ def create_app() -> Any:
         spec = None
         try:
             prompt = str(body.get("prompt") or "").strip()
-            seed = int(body.get("seed", 0))
+            seed = _seed(body)
             render = body.get("render", True)
             num_envs = body.get("num_envs", 1)
             auto_repair = body.get("auto_repair", True)
@@ -147,6 +178,11 @@ def create_app() -> Any:
                     # the same schema/geometry preflight here, but never send
                     # a UE5 SceneSpec through the ManiSkill/SAPIEN renderer.
                     validation = validate_scene_spec(spec, asset_registry=generator.registry)
+                    if not validation["ok"]:
+                        raise SceneValidationError(validation)
+                    if render:
+                        return JSONResponse({"status": "unsupported", "error": "UE-only 场景生成尚未实现；请选择 ManiSkill3/Panda 生成场景，或调用 scene/validate 仅做静态检查。",
+                                             "scene_spec": validation["normalized_spec"], "validation": validation}, status_code=422)
                     instance = {
                         "scene_spec": validation.get("normalized_spec", spec),
                         "task": spec.get("task"),
@@ -156,6 +192,8 @@ def create_app() -> Any:
                         "validation": validation,
                         "preview_path": None,
                     }
+                    return JSONResponse({"status": "validated", "generation_ms": round((time.perf_counter() - started) * 1000, 2),
+                                         "warning": "仅完成静态检查，未构造 UE 场景或执行仿真。", **(_public_instance(instance) or {})})
                 else:
                     instance = await loop.run_in_executor(_worker, partial(generator.generate, spec, seed=seed, num_envs=num_envs, render=render,
                                                                            auto_repair=auto_repair, max_repair_attempts=attempts))
@@ -203,7 +241,7 @@ def create_app() -> Any:
 
     @api.post("/api/maniskill/pipeline/start")
     async def start_pipeline(req: Request):
-        body = await req.json()
+        body = await _request_object(req)
         if not isinstance(body, dict):
             return JSONResponse({"error": "request must be a JSON object"}, status_code=400)
         if _generation_lock.locked():
@@ -223,7 +261,10 @@ def create_app() -> Any:
         except ValueError as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
         run_id = uuid.uuid4().hex[:12]
-        _pipeline_jobs[run_id] = {"run_id": run_id, "status": "running", "progress": {"phase": "planning"}}
+        _pipeline_jobs[run_id] = {"run_id": run_id, "status": "running", "progress": {"phase": "planning"},
+                                  "requested_episodes": count, "successful_episodes": 0,
+                                  "episodes": [], "failed_episodes": [], "started_at": time.time()}
+        _save_job(_pipeline_jobs[run_id])
         await _generation_lock.acquire()
         loop = asyncio.get_running_loop()
         def work():
@@ -240,7 +281,11 @@ def create_app() -> Any:
             except Exception as exc:
                 _pipeline_jobs[run_id].update(status="failed", error=f"{type(exc).__name__}: {exc}")
             finally:
-                _generation_lock.release()
+                try:
+                    _pipeline_jobs[run_id]["finished_at"] = time.time()
+                    _save_job(_pipeline_jobs[run_id])
+                finally:
+                    _generation_lock.release()
         task = asyncio.create_task(run_job())
         _pipeline_tasks.add(task)
         task.add_done_callback(_pipeline_tasks.discard)
@@ -253,6 +298,13 @@ def create_app() -> Any:
         if run_id in _pipeline_jobs:
             return JSONResponse(_pipeline_jobs[run_id])
         path = OUTPUT_DIR/"datasets"/run_id/"run.json"
+        job_path = OUTPUT_DIR/"datasets"/(run_id+".job.json")
+        if job_path.is_file():
+            saved = json.loads(job_path.read_text(encoding="utf-8"))
+            if saved["status"] != "running":
+                return JSONResponse(_pipeline_public(saved))
+            if not path.is_file():
+                path = job_path
         if path.is_file():
             result = json.loads(path.read_text(encoding="utf-8"))
             if result["status"] == "running":

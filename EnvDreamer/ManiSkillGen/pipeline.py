@@ -51,6 +51,11 @@ class DataPipeline:
                     candidate["randomization"]={}
                 progress("scene",index)
                 if candidate.get("backend") == "ue5":
+                    from .validator import validate_scene_spec, SceneValidationError
+                    source_validation = validate_scene_spec(candidate)
+                    if not source_validation["ok"]:
+                        raise SceneValidationError(source_validation)
+                    candidate = source_validation["normalized_spec"]
                     from EnvGen.Scripts.ue5_trajectory import generate_ue5_stack_episode
                     from EnvGen.Scripts.lerobot_export import convert_hdf5, zip_dataset
                     episode_dir = directory / f"episode_{index:03d}"
@@ -58,6 +63,11 @@ class DataPipeline:
                     progress("ue5_scene", index, frames=0)
                     ue_result = generate_ue5_stack_episode(candidate, episode_dir, seed=int(seed) + index,
                                                            progress=lambda frame, total: progress("ue5_rollout", index, frames=frame, total_frames=total))
+                    proof = ue_result.get("validation", {})
+                    if (proof.get("task_rollout") is not True or proof.get("final_success") is not True
+                            or proof.get("initial_success") is not False
+                            or proof.get("final_success_hold_frames", 0) < 10):
+                        raise ValueError("UE trajectory did not pass consecutive final success validation")
                     lerobot_root = episode_dir / "lerobot_v3"
                     converted = convert_hdf5(ue_result["source_h5"], lerobot_root,
                                              repo_id=f"local/{run_id}_episode_{index:03d}", task="Stack the moving cube on the target cube.")

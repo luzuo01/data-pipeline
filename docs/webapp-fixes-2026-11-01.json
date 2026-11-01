@@ -1,0 +1,164 @@
+{
+  "date": "2026-11-01",
+  "issues": {
+    "B01": "addressed",
+    "B02": "addressed",
+    "B03": "addressed",
+    "B04": "addressed",
+    "B05": "addressed",
+    "B06": "addressed",
+    "B07": "addressed",
+    "B08": "addressed",
+    "B09": "addressed",
+    "B10": "addressed"
+  },
+  "additional_fix": "Windows converter subprocess UTF-8 diagnostics",
+  "pytest": {
+    "total": 110,
+    "passed": 109,
+    "failed": 0,
+    "errors": 0,
+    "skipped": [
+      {
+        "test": "test_stale_configured_python_falls_back_to_project_runtime",
+        "reason": "project Portal-Trace runtime is not installed"
+      }
+    ],
+    "integration_enabled": true
+  },
+  "browser": {
+    "engine": "Playwright / Microsoft Edge (Chromium)",
+    "passed": 20,
+    "failed": 0,
+    "cases": [
+      {
+        "name": "home_controls",
+        "passed": true
+      },
+      {
+        "name": "client_invalid_json_recovers",
+        "passed": true
+      },
+      {
+        "name": "default_prompt_creates_real_preview",
+        "passed": true
+      },
+      {
+        "name": "invalid_ue_scene_rejected",
+        "passed": true
+      },
+      {
+        "name": "ue_generation_not_falsely_reported",
+        "passed": true
+      },
+      {
+        "name": "real_panda_scene_preview",
+        "passed": true
+      },
+      {
+        "name": "pipeline_rejects_episodes_zero",
+        "passed": true
+      },
+      {
+        "name": "pipeline_rejects_episodes_over_limit",
+        "passed": true
+      },
+      {
+        "name": "pipeline_rejects_fractional_seed",
+        "passed": true
+      },
+      {
+        "name": "pipeline_rejects_invalid_render_flag",
+        "passed": true
+      },
+      {
+        "name": "live_invalid_json_is_4xx",
+        "passed": true
+      },
+      {
+        "name": "running_job_restores_after_page_reload",
+        "passed": true
+      },
+      {
+        "name": "parallel_start_rejected_api_remains_responsive",
+        "passed": true
+      },
+      {
+        "name": "physical_pipeline_completes",
+        "passed": true
+      },
+      {
+        "name": "downloads_are_real_v3_metadata_and_preview",
+        "passed": true
+      },
+      {
+        "name": "internal_source_not_publicly_downloadable",
+        "passed": true
+      },
+      {
+        "name": "completed_job_restores_after_reload",
+        "passed": true
+      },
+      {
+        "name": "mobile_no_horizontal_overflow",
+        "passed": true
+      },
+      {
+        "name": "failed_job_status_counts_failure",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_browser_exceptions",
+        "passed": true
+      }
+    ],
+    "uncaught_exceptions": []
+  },
+  "actual_server_restart": {
+    "completed_job": {
+      "http": 200,
+      "status": "complete"
+    },
+    "failed_job": {
+      "http": 200,
+      "status": "failed"
+    },
+    "unknown_job_cleared": true,
+    "completed_download_restored": true
+  },
+  "live_physical_dataset": {
+    "status": "passed",
+    "rows": 291,
+    "fps": 20,
+    "native_feature_count": 38,
+    "mapped_value_checks": 9312,
+    "source_sha256_verified": true,
+    "state_float64_to_float32_max_absolute_error": 0.0,
+    "videos": {
+      "observation.images.front": {
+        "decoded_frames": 291,
+        "mean_mse": 5.43205369215241,
+        "psnr_db": 40.78116306868979,
+        "maximum_absolute_channel_error": 122.0,
+        "encoding_is_lossy": true
+      }
+    },
+    "official_reader_sample_indices": [
+      0,
+      38,
+      93,
+      145,
+      223,
+      290
+    ],
+    "action_window_and_padding_verified": true,
+    "terminal_observation_verified": true,
+    "action_state_mean_std_verified": true,
+    "scope": "LeRobot v3 training view with native dense GT features plus a byte-identical HDF5 archive for exact source-layout access."
+  },
+  "verification_limits": [
+    "UE-only scene construction is not implemented: render=true is rejected; render=false reports static validation only.",
+    "UE trajectory success was tested using controlled Remote Control responses; no full UE white-model rendering or C++ rebuild was performed.",
+    "UE trajectory proof covers actor geometry only; it does not certify contact dynamics."
+  ]
+}

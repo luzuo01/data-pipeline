@@ -50,7 +50,7 @@ def extract_zip(path: Path, destination: Path) -> Path:
     destination.mkdir(parents=True)
     with zipfile.ZipFile(path) as archive:
         names = _relative_names(archive)
-        total_uncompressed = sum(archive.getinfo(name).file_size for name in names)
+        total_uncompressed = sum(info.file_size for info in archive.infolist() if not info.is_dir())
         if len(names) > 10000:
             raise ValueError("ZIP contains too many files (maximum 10000)")
         if total_uncompressed > 20 * 1024**3:
@@ -79,28 +79,30 @@ def _discover_names(names: list[str], root: Path | None = None) -> list[ZipSourc
     # prefix (for example ``my_upload/``) does not matter.
     pipeline_roots = set()
     for name in normalized:
-        if name.endswith("/data/control_records.jsonl"):
-            pipeline_roots.add(name[: -len("/data/control_records.jsonl")])
+        path = Path(name)
+        if path.parts[-2:] == ("data", "control_records.jsonl"):
+            pipeline_roots.add(path.parent.parent.as_posix())
     for prefix in sorted(pipeline_roots):
-        if f"{prefix}/scene/task.json" not in normalized:
+        if (Path(prefix) / "scene/task.json").as_posix() not in normalized:
             continue
         package = Path(prefix) if root is None else root / prefix
         sources.append(ZipSource("pipeline_confined_reach_v1", package, Path(prefix).name or "pipeline_sample", {"control_rows": 300}))
 
     # Table30 episodes have a stable three-part signature.
     for name in sorted(normalized):
-        if not name.endswith("/states/states.jsonl"):
+        path = Path(name)
+        if path.parts[-2:] != ("states", "states.jsonl"):
             continue
-        prefix = name[: -len("/states/states.jsonl")]
+        prefix = path.parent.parent
         required = [
-            f"{prefix}/meta/episode_meta.json",
-            f"{prefix}/videos/cam_global_rgb.mp4",
-            f"{prefix}/videos/cam_side_rgb.mp4",
-            f"{prefix}/videos/cam_arm_rgb.mp4",
+            (prefix / "meta/episode_meta.json").as_posix(),
+            (prefix / "videos/cam_global_rgb.mp4").as_posix(),
+            (prefix / "videos/cam_side_rgb.mp4").as_posix(),
+            (prefix / "videos/cam_arm_rgb.mp4").as_posix(),
         ]
         if all(item in normalized for item in required):
             episode = Path(prefix) if root is None else root / prefix
-            sources.append(ZipSource("robochallenge_table30_v2_arx5", episode, Path(prefix).name, {"videos": 3}))
+            sources.append(ZipSource("robochallenge_table30_v2_arx5", episode, Path(prefix).name or "table30_episode", {"videos": 3}))
 
     # Dexmal JSONL rows refer to shared top/wrist MP4 files. Search the nearest
     # common directory, supporting both a flat sample and nested HF snapshots.
@@ -109,13 +111,13 @@ def _discover_names(names: list[str], root: Path | None = None) -> list[ZipSourc
         if path.suffix.lower() != ".jsonl" or not path.name.startswith("episode_"):
             continue
         candidates: list[Path] = []
-        for count in range(len(path.parts), 0, -1):
+        for count in range(len(path.parts) - 1, -1, -1):
             prefix = Path(*path.parts[:count])
             if (prefix / "top.mp4").as_posix() in normalized and (prefix / "wrist.mp4").as_posix() in normalized:
                 candidates.append(prefix)
         if candidates:
             prefix = candidates[0]
-            episode = (Path(prefix) / path.name) if root is None else root / prefix / path.name
+            episode = path if root is None else root / path
             video_root = Path(prefix) if root is None else root / prefix
             sources.append(ZipSource("dexmal_jsonl_video_v1", episode, path.stem, {"top_video": str(video_root / "top.mp4"), "wrist_video": str(video_root / "wrist.mp4")}))
 

@@ -214,19 +214,19 @@ def generate_ue5_stack_episode(spec: dict, episode_dir: Path, *, seed: int = 0, 
                 pass
             object_states[oid][i, :3] = p
             object_states[oid][i, 3] = 1.0
-        success[i] = ratio >= .95
-        if i == n:
-            try:
-                check_response = rc("RC_CheckStackSuccess", MovingId="ue5_demo_" + moving["id"],
-                                    TargetId="ue5_demo_" + target["id"], ToleranceCm=2.5)
-                # UE Remote Control returns the UFUNCTION bool in
-                # ReturnValue and exposes the JSON out parameter alongside
-                # it.  Do not attempt to json-decode the bool itself.
-                check = json.loads(check_response.get("OutJson", "{}"))
-                success[i] = bool(check.get("success", success[i]))
-                chaos_events.append({"frame": i, "event": "stack_check", **check})
-            except Exception as exc:
-                chaos_events.append({"frame": i, "event": "stack_check_unavailable", "error": str(exc)})
+        # Never infer task success from the programmed interpolation ratio.
+        # Missing/invalid UE evidence fails closed rather than retaining an
+        # optimistic label. Each recorded observation has its own check.
+        try:
+            check_response = rc("RC_CheckStackSuccess", MovingId="ue5_demo_" + moving["id"],
+                                TargetId="ue5_demo_" + target["id"], ToleranceCm=2.5)
+            check = json.loads(check_response.get("OutJson", "{}"))
+            if check_response.get("ReturnValue") is not True or type(check.get("success")) is not bool:
+                raise ValueError("UE success check did not return a boolean result")
+            success[i] = check["success"]
+            chaos_events.append({"frame": i, "event": "stack_check", **check})
+        except Exception as exc:
+            raise RuntimeError(f"UE success check unavailable at frame {i}: {exc}") from exc
         stages.append("place" if ratio >= .95 else "transport" if ratio > .45 else "approach")
         if i % 5 == 0 or i == n:
             path = frames_dir / f"{i:05d}.png"
@@ -236,11 +236,26 @@ def generate_ue5_stack_episode(spec: dict, episode_dir: Path, *, seed: int = 0, 
             except Exception:
                 if last_rgb is None:
                     raise
+                Image.fromarray(last_rgb).save(path)
             if progress:
                 progress(i + 1, n + 1)
         else:
             path = frames_dir / f"{i:05d}.png"
             Image.fromarray(last_rgb).save(path)
+
+    hold_frames = 0
+    for value in success[::-1]:
+        if not value:
+            break
+        hold_frames += 1
+    validation = {"task_rollout": not bool(success[0]) and hold_frames >= 10,
+                  "proof_level": "UE_actor_geometry_only",
+                  "initial_success": bool(success[0]), "final_success": bool(success[-1]),
+                  "final_success_hold_frames": hold_frames, "required_success_hold_frames": 10,
+                  "chaos_physics": None, "semantic_ids_recorded": True, "chaos_events": chaos_events}
+    (episode_dir / "trajectory_validation.json").write_text(json.dumps(validation, indent=2), encoding="utf-8")
+    if not validation["task_rollout"]:
+        raise ValueError(f"UE trajectory failed success validation: initial_success={bool(success[0])}, consecutive_final_success_frames={hold_frames} (required 10)")
 
     actions = np.zeros((n, dof + 1), dtype=np.float32)
     actions[:, :dof] = joints[1:].astype(np.float32)
@@ -303,6 +318,4 @@ def generate_ue5_stack_episode(spec: dict, episode_dir: Path, *, seed: int = 0, 
         cams.create_dataset("visible_pixels", data=visible_pixels)
         h5.create_dataset("metadata_json", data=json.dumps(metadata, ensure_ascii=False))
     return {"source_h5": source, "frames": n + 1, "actions": actions, "metadata": metadata,
-        "validation": {"task_rollout": True, "ue5_actor_state_replay": not bool(chaos_events), "chaos_physics": True,
-                        "physics_engine": "Chaos", "final_success_hold_frames": int(success[-10:].sum()),
-                        "semantic_ids_recorded": True, "chaos_events": chaos_events}}
+        "validation": validation}

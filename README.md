@@ -79,6 +79,7 @@ docs/                # 架构、安装、数据语义、验收记录
 
 ## 文档与验证
 
+- [Web 问题修复与回归结果](docs/WEBAPP_FIXES_2026-11-01.md)
 - [架构与工作范围](docs/ARCHITECTURE.md)
 - [安装、启动、接口与 UE 配置](docs/SETUP.md)
 - [数据契约与时间对齐](docs/DATA_CONTRACT.md)

@@ -1,0 +1,2 @@
+# Isolated test environment; use installed Chromium-based Edge by default.
+playwright==1.64.1
