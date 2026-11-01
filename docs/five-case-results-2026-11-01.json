@@ -1,0 +1,45 @@
+[
+  {
+    "case": 1,
+    "run_id": "89cd06d13af1",
+    "passed": true,
+    "video_frames": 258,
+    "video_seconds": 12.9,
+    "video_url": "/api/maniskill/pipeline/89cd06d13af1/files/episode_000/ue_white.mp4",
+    "lerobot_url": "/api/maniskill/pipeline/89cd06d13af1/files/episode_000/lerobot_v3.zip"
+  },
+  {
+    "case": 2,
+    "run_id": "9708f551584d",
+    "passed": true,
+    "video_frames": 215,
+    "video_seconds": 10.75,
+    "video_url": "/api/maniskill/pipeline/9708f551584d/files/episode_000/ue_white.mp4",
+    "lerobot_url": "/api/maniskill/pipeline/9708f551584d/files/episode_000/lerobot_v3.zip"
+  },
+  {
+    "case": 3,
+    "run_id": "55725e25dd50",
+    "passed": true,
+    "video_frames": 267,
+    "video_seconds": 13.35,
+    "video_url": "/api/maniskill/pipeline/55725e25dd50/files/episode_000/ue_white.mp4",
+    "lerobot_url": "/api/maniskill/pipeline/55725e25dd50/files/episode_000/lerobot_v3.zip"
+  },
+  {
+    "case": 4,
+    "run_id": "8c68254c57e2",
+    "passed": true,
+    "video_frames": 292,
+    "video_seconds": 14.6,
+    "video_url": "/api/maniskill/pipeline/8c68254c57e2/files/episode_000/ue_white.mp4",
+    "lerobot_url": "/api/maniskill/pipeline/8c68254c57e2/files/episode_000/lerobot_v3.zip"
+  },
+  {
+    "case": 5,
+    "run_id": "908396471f78",
+    "passed": true,
+    "expected_rejection": "ValueError: 不支持该任务：当前仅支持桌面几何物体的抓取放置、堆叠和推动，不支持杯碗液体倾倒或毛巾擦拭；未生成替代任务。",
+    "generated_artifacts": false
+  }
+]

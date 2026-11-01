@@ -30,6 +30,7 @@ from .planner import SceneSpecPlanner
 from .portal_trace_backend import PORTAL_ROBOTS, PORTAL_TASKS, PORTAL_UE_ASSETS
 from .validator import SceneValidationError, validate_scene_spec
 from .repair import repair_scene
+from .scene_spec import validate_seed
 
 
 ROOT = Path(__file__).resolve().parent
@@ -58,10 +59,7 @@ async def _request_object(req):
 
 
 def _seed(body):
-    seed = body.get("seed", 0)
-    if type(seed) is not int:
-        raise ValueError("seed must be an integer")
-    return seed
+    return validate_seed(body.get("seed", 0))
 
 
 def _save_job(job):
@@ -76,6 +74,10 @@ def _save_job(job):
 
 def _pipeline_public(result):
     public = dict(result)
+    episodes = result.get("episodes", [])
+    requested = result.get("render_ue_requested", False) or any(e.get("ue_render_error") or e.get("white_model_video_path") for e in episodes)
+    public["missing_video_episodes"] = sum(not e.get("white_model_video_path") for e in episodes) if requested else 0
+    public["delivery_status"] = "partial" if result.get("status") == "complete" and public["missing_video_episodes"] else result.get("status")
     public["episodes"] = []
     for episode in result.get("episodes", []):
         entry = dict(episode)
@@ -248,12 +250,13 @@ def create_app() -> Any:
             return JSONResponse({"error": "已有生成任务正在运行"}, status_code=409)
         try:
             count = body.get("num_episodes", 1)
-            seed = body.get("seed", 0)
+            seed = _seed(body)
             auto_repair = body.get("auto_repair", True)
             attempts = body.get("max_repair_attempts", 3)
             render_ue = body.get("render_ue", False)
             if type(count) is not int or not 1 <= count <= 10 or type(seed) is not int:
                 raise ValueError("num_episodes must be 1..10 and seed must be an integer")
+            validate_seed(seed + count - 1)
             if type(auto_repair) is not bool or type(render_ue) is not bool or type(attempts) is not int or not 0 <= attempts <= 5:
                 raise ValueError("invalid repair settings")
             if "spec" in body and not isinstance(body["spec"], dict):

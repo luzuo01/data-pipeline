@@ -32,10 +32,12 @@
 <script>
 const $=id=>document.getElementById(id);
 const labels={schema:'结构',assets:'资产',geometry:'静态几何',task_feasibility:'任务必要条件',environment_reset:'仿真初始化',physics_stability:'短时稳定性',preview_render:'真实渲染',finite_state:'状态数值',runtime_bounds:'运行时边界',contact_penetration:'物体接触穿透',collision_free_ik:'无碰撞 IK',task_rollout:'任务执行',robot_self_collision:'机器人自碰撞'};
+let previewKind='image';
 let previewUrl=null, currentScene=null, scenePrompt=null, pipelineBusy=false;
 for(const button of document.querySelectorAll('[data-tab]')) button.onclick=()=>{for(const other of document.querySelectorAll('[data-tab]')){other.classList.toggle('active',other===button);$(other.dataset.tab).hidden=other!==button;}};
 function paragraph(parent,text,className='meta'){const p=document.createElement('p');p.className=className;p.textContent=text;parent.append(p);}
 function setPreview(url, kind, note){
+ previewKind=kind;
  const img=$('preview'), video=$('video-preview');
  if(kind==='video'){img.removeAttribute('src');img.hidden=true;video.hidden=false;video.src=url+'?t='+Date.now();video.load();}
  else{video.pause();video.removeAttribute('src');video.hidden=true;img.hidden=false;if(url)img.src=url+'?t='+Date.now();else img.removeAttribute('src');}
@@ -67,7 +69,7 @@ function show(data){
  if(previewUrl){setPreview(previewUrl,'image','通过验证的场景 · '+backend);}
  else{setPreview(null,'image','本次没有可展示的已验证截图');}
 }
-$('refresh').onclick=()=>{if(previewUrl){setPreview(previewUrl,'image','刷新后的仿真场景');}else{$('status').textContent='请先生成通过验证的场景。';}};
+$('refresh').onclick=()=>{if(previewUrl){setPreview(previewUrl,previewKind,'刷新后的仿真预览');}else{$('status').textContent='请先生成通过验证的场景。';}};
 $('generate').onclick=async()=>{
  selectTab('summary');
  $('generate').disabled=true;$('pipeline').disabled=true;$('status').textContent='规划、验证与仿真中…';
@@ -80,9 +82,10 @@ $('generate').onclick=async()=>{
 function selectTab(name){document.querySelector(`[data-tab="${name}"]`).click();}
 function pipelineResult(data){
  const panel=$('dataset');panel.replaceChildren();
+ if(['failed','interrupted'].includes(data.status) && !data.episodes?.length){previewUrl=null;setPreview(null,'image','当前任务未生成可播放的结果');}
  const progress=data.progress||{};
  const names={planning:'解析任务',scene:'生成与验证场景',trajectory:'执行机械臂任务',export:'导出逐帧真值',complete:'完成',partial:'部分完成',failed:'失败',interrupted:'已中断'};
- paragraph(panel,`${names[data.status]||'运行中'} · ${names[progress.phase]||progress.phase||''} ${progress.skill_phase||''}`);
+ paragraph(panel,`${names[data.delivery_status||data.status]||'运行中'} · ${names[progress.phase]||progress.phase||''} ${progress.skill_phase||''}`);
  if(data.status==='running'){
   const bar=document.createElement('progress');
   const totalFrames=Number(progress.total_frames);
@@ -116,12 +119,13 @@ function pipelineResult(data){
 async function pollPipeline(id){
  try{const response=await fetch('/api/maniskill/pipeline/'+id);const data=await response.json();if(response.status===404){localStorage.removeItem('pipelineRun');$('dataset').replaceChildren();paragraph($('dataset'),'任务记录不存在，请重新提交。','issue');$('status').textContent='任务记录不存在，请重新提交。';pipelineBusy=false;$('generate').disabled=false;$('pipeline').disabled=false;return;}if(!response.ok)throw new Error(data.error||'查询失败');pipelineResult(data);
   pipelineBusy=data.status==='running';$('generate').disabled=pipelineBusy;$('pipeline').disabled=pipelineBusy;
-  $('status').textContent=pipelineBusy?'数据生成中，可在右侧查看进度。':data.status==='failed'?('数据生成失败：'+(data.error||'全部样本执行失败，请查看详情。')):data.status==='interrupted'?'任务已中断，请重新提交。':`数据生成结束：${data.successful_episodes||0} 条成功，${data.failed_episodes?.length||0} 条失败。`;
+  $('status').textContent=pipelineBusy?'数据生成中，可在右侧查看进度。':data.status==='failed'?('数据生成失败：'+(data.error||'全部样本执行失败，请查看详情。')):data.status==='interrupted'?'任务已中断，请重新提交。':data.missing_video_episodes?`交付未完成：数据已生成，${data.missing_video_episodes} 条白模视频失败，请查看详情。`:`数据生成结束：${data.successful_episodes||0} 条成功，${data.failed_episodes?.length||0} 条失败。`;
   if(pipelineBusy)setTimeout(()=>pollPipeline(id),1000);
  }catch(error){$('status').textContent=String(error)+'；刷新页面可重新查询任务状态。';$('generate').disabled=false;$('pipeline').disabled=false;}
 }
 $('pipeline').onclick=async()=>{
  $('generate').disabled=true;$('pipeline').disabled=true;selectTab('dataset');
+ previewUrl=null;setPreview(null,'image','当前任务正在生成，尚无可播放的结果');$('dataset').replaceChildren();
  try{
   const body={prompt:$('prompt').value,seed:Number($('seed').value||0),num_episodes:Number($('episodes').value),auto_repair:$('auto-repair').checked,max_repair_attempts:Number($('attempts').value),render_ue:true};
   if($('json-input').value.trim())body.spec=JSON.parse($('json-input').value);

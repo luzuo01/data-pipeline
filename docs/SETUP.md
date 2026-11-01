@@ -64,7 +64,13 @@ python scripts/prepare_ue_assets.py --source <existing-EnvDreamer-checkout>
 2. 打开 `/Game/EnvGen/Maps/ThirdPersonMap`，确认 JsonSceneBuilder Actor 存在，Remote Control 启用。
 3. HTTP 端口为 `30010`。执行 `Test-NetConnection 127.0.0.1 -Port 30010`；端口可达只表示监听存在。
 4. 如果 Actor 路径与 `Scripts/panda_demo.py` 默认值不同，把实际 Object Path 写入 `RC_OBJECT_PATH`，也可配置 `RC_BASE_URL`。
-5. 保持编辑器视口打开、可见且无阻塞弹窗；然后用网页或 `--render-ue` 生成视频。
+5. 重新编译包含后台截图修复的 `environmentEditor`。编辑器需要加载地图和 level viewport，但窗口可以隐藏，不需要置于前台；使用 `-unattended -NoSplash` 避免启动弹窗阻塞。示例（替换为本机路径）：
+
+```powershell
+Start-Process '<UE5.6>/Engine/Binaries/Win64/UnrealEditor.exe' -ArgumentList '<绝对路径>/environment.uproject','-unattended','-NoSplash' -WindowStyle Hidden
+```
+
+`RC_Snapshot` 现在主动驱动视口渲染并确认文件写入。旧 DLL 仍会依赖可见视口，因此仅更新 Python 不够。后台模式仍需要图形运行环境与 GPU，并不等于服务器无桌面模式。
 
 截图从当前项目的 `Saved/AIShots` 读取，因此运行的 UE 项目目录应与 Python 桥接目录一致。白模帧复用和失败处理见 [数据契约](DATA_CONTRACT.md)。
 

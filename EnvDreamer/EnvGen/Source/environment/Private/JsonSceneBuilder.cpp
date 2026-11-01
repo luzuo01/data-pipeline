@@ -18,6 +18,7 @@
 #include "Editor.h"
 #include "Editor/EditorEngine.h"
 #include "EditorViewportClient.h"
+#include "LevelEditorViewport.h"
 #include "Misc/Paths.h"
 #include "HighResScreenshot.h"
 // Asset registry for auto-detecting asset types
@@ -683,37 +684,35 @@ bool AJsonSceneBuilder::RC_SetLocation(const FString& Id, float X, float Y, floa
 
 bool AJsonSceneBuilder::RC_Snapshot(const FString& Name, int32 ResX, int32 ResY, FString& OutPath)
 {
+    OutPath.Empty();
+#if WITH_EDITOR
+    if (!GEditor || ResX <= 0 || ResY <= 0 || ResX > 4096 || ResY > 4096)
+        return false;
+    // Select an actual level viewport, independent of OS foreground focus.
+    FViewport* CaptureViewport = nullptr;
+    for (FLevelEditorViewportClient* Client : GEditor->GetLevelViewportClients())
+    {
+        if (Client && Client->Viewport && Client->IsPerspective())
+        {
+            CaptureViewport = Client->Viewport;
+            break;
+        }
+    }
+    if (!CaptureViewport) return false;
     const FString Dir = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("AIShots"));
     IFileManager::Get().MakeDirectory(*Dir, true);
-
-    OutPath = Dir / (Name + TEXT(".png"));
-    // Prefer a level-editor viewport even when the browser currently has
-    // focus. FScreenshotRequest can return successfully without producing a
-    // file when there is no active editor viewport.
-    FHighResScreenshotConfig& ScreenshotConfig = GetHighResScreenshotConfig();
-    ScreenshotConfig.SetResolution(ResX, ResY, 1.0f);
-    ScreenshotConfig.SetFilename(OutPath);
-
-#if WITH_EDITOR
-    FViewport* CaptureViewport = nullptr;
-    if (GEditor)
-    {
-        CaptureViewport = GEditor->GetActiveViewport();
-        // UE5.6 no longer exposes FEditorViewportClient::GetViewport().
-        // Keep the active viewport path; when the browser has focus the
-        // existing FScreenshotRequest fallback below remains available.
-    }
-    if (CaptureViewport)
-    {
-        CaptureViewport->TakeHighResScreenShot();
-    }
-    else
+    OutPath = Dir / (FPaths::GetCleanFilename(Name) + TEXT(".png"));
+    FHighResScreenshotConfig& Config = GetHighResScreenshotConfig();
+    Config.SetResolution(ResX, ResY, 1.0f);
+    Config.SetFilename(OutPath);
+    if (!CaptureViewport->TakeHighResScreenShot()) return false;
+    // Remote Control runs on the game thread. Explicit draw processes the
+    // capture even when Slate suppresses redraws for hidden/minimized windows.
+    CaptureViewport->Draw(false);
+    return IFileManager::Get().FileSize(*OutPath) > 0;
+#else
+    return false;
 #endif
-    {
-        FScreenshotRequest::RequestScreenshot(OutPath, false, false);
-    }
-
-    return true;
 }
 
 // ============================================================================

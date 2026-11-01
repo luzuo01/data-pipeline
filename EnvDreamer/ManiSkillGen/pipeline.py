@@ -11,7 +11,7 @@ from pathlib import Path
 from .generator import ManiSkillSceneGenerator
 from .gt_exporter import GTExporter
 from .planner import SceneSpecPlanner
-from .scene_spec import default_scene_spec
+from .scene_spec import default_scene_spec, validate_seed
 from .trajectory import TrajectoryGenerator
 
 
@@ -23,6 +23,8 @@ class DataPipeline:
             reference_scene=False, run_id=None, on_progress=None, render_ue=False):
         if type(num_episodes) is not int or not 1 <= num_episodes <= 10:
             raise ValueError("num_episodes must be an integer in [1,10]")
+        validate_seed(seed)
+        validate_seed(seed + num_episodes - 1)
         if not isinstance(spec,dict):
             raise ValueError("spec must be a JSON object")
         if spec.get("backend", "maniskill3") not in {"maniskill3", "ue5"}:
@@ -37,7 +39,7 @@ class DataPipeline:
         directory=self.output_dir/run_id
         directory.mkdir(parents=True,exist_ok=False)
         result={"run_id":run_id,"status":"running","requested_episodes":num_episodes,"successful_episodes":0,
-                "episodes":[],"failed_episodes":[],"started_at":time.time(),"reference_scene":reference_scene,
+                "episodes":[],"failed_episodes":[],"started_at":time.time(),"reference_scene":reference_scene,"render_ue_requested":render_ue,
                 "augmentation":"independent seeded scene parameter randomization + physical skill re-execution; not MimicGen"}
         def progress(phase,episode,**extra):
             if on_progress: on_progress({"phase":phase,"episode":episode,"total_episodes":num_episodes,**extra})
@@ -111,9 +113,9 @@ class DataPipeline:
                 white_video = None
                 ue_render_error = None
                 if render_ue:
-                    from EnvGen.Scripts.ue_trajectory_render import render_trajectory
                     progress("ue_render", index, frames=0, total_frames=len(trajectory["states"]))
                     try:
+                        from EnvGen.Scripts.ue_trajectory_render import render_trajectory
                         render_trajectory(episode_dir, lambda phase, message, **extra: progress(phase, index, message=message, **extra))
                         white_video = episode_dir / "ue_white.mp4"
                     except Exception as exc:

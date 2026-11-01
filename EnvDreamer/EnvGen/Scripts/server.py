@@ -228,21 +228,8 @@ MAX_HISTORY_ENTRIES = 50
 
 
 def _request_scene_snapshot() -> bool:
-    """Ask the active UE editor viewport for a fresh preview image."""
+    """Ask UE for a fresh background-rendered preview image."""
     try:
-        # UE's editor viewport screenshot request is processed only when an
-        # editor viewport is active. Bring this project's editor window to the
-        # foreground briefly so a browser request does not leave a stale image.
-        if sys.platform.startswith("win"):
-            try:
-                import ctypes
-                user32 = ctypes.windll.user32
-                hwnd = user32.FindWindowW(None, "environment - 虚幻编辑器")
-                if hwnd:
-                    user32.ShowWindow(hwnd, 9)
-                    user32.SetForegroundWindow(hwnd)
-            except Exception:
-                pass
         return bool(rc_call("RC_Snapshot", {
             "Name": "latest",
             "ResX": 1280,

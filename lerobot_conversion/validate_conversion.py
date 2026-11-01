@@ -3,19 +3,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import av
 import h5py
 import numpy as np
 import pyarrow.parquet as pq
-from lerobot.datasets import LeRobotDataset
 
 from convert_hdf5 import dump, sha256, text
 from source_ground_truth import SourceGroundTruth
 
 
 def validate(root: Path) -> dict:
+    # Dense GT can expand into multi-GB Arrow caches. Keep the default on the
+    # dataset volume, while honoring an explicitly configured cache location.
+    os.environ.setdefault("HF_DATASETS_CACHE", str(root.parent / ".validation-cache"))
+    from lerobot.datasets import LeRobotDataset
     manifest = json.loads((root / "meta/semantic_manifest.json").read_text(encoding="utf-8"))
     info = json.loads((root / "meta/info.json").read_text(encoding="utf-8"))
     n = manifest["training_rows"]

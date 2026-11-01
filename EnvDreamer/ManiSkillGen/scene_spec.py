@@ -11,6 +11,13 @@ SCHEMA_VERSION = "scene_spec_v1"
 BACKEND = "maniskill3"
 
 
+def validate_seed(seed: Any) -> int:
+    """Use NumPy/ManiSkill's uint32 seed domain without lossy coercion."""
+    if type(seed) is not int or not 0 <= seed < 2**32:
+        raise ValueError("seed must be an integer in [0, 4294967295]")
+    return seed
+
+
 def default_scene_spec(seed: int = 0) -> Dict[str, Any]:
     """Return a complete, valid Franka tabletop pick-and-place specification."""
     return {
@@ -101,7 +108,8 @@ def normalize_scene_spec(spec: Mapping[str, Any] | None, seed: int | None = None
     if not isinstance(spec, Mapping):
         raise TypeError("SceneSpec must be a JSON object")
     result: Dict[str, Any] = _copy(dict(spec))
-    defaults = default_scene_spec(int(result.get("seed", 0) if seed is None else seed))
+    validate_seed(result.get("seed", 0))
+    defaults = default_scene_spec(validate_seed(result.get("seed", 0) if seed is None else seed))
     if result.get("backend") == "portal_trace":
         defaults["randomization"] = {}
     for key, value in defaults.items():

@@ -5,13 +5,15 @@ import hashlib
 import json
 import os
 import time
-import ctypes
 from pathlib import Path
 
 import h5py
 import imageio.v2 as imageio
 import numpy as np
 from PIL import Image
+from scipy.spatial.transform import Rotation
+
+from .ue_scene_runtime import capture_snapshot, clear_pipeline_actors
 
 # The legacy EnvGen worker is normally launched from ``EnvGen`` and exposes
 # ``Scripts`` as a top-level namespace.  ManiSkillGen imports this renderer
@@ -32,6 +34,16 @@ def world_to_ue(position):
     return np.asarray(position) * [100., -100., 100.] + [1530., 0., 0.]
 
 
+def object_transform(pose, definition):
+    pose = np.asarray(pose).copy()
+    if definition['shape'] == 'cylinder':
+        # SAPIEN cylinder axis is X; UE primitive axis is Z.
+        q = Rotation.from_quat(pose[[4,5,6,3]]) * Rotation.from_euler('y', -np.pi/2)
+        x,y,z,w = q.as_quat()
+        pose[3:7] = [w,x,y,z]
+    return transform(pose, definition['size'])
+
+
 def transform(pose, scale):
     x, y, z = world_to_ue(pose[:3]).tolist()
     w, qx, qy, qz = map(float, pose[3:7])
@@ -39,24 +51,6 @@ def transform(pose, scale):
         'Rotation': dict(X=-qx, Y=qy, Z=-qz, W=w),
         'Scale3D': dict(zip(('X', 'Y', 'Z'), map(float, scale)))},
         'bSweep': False, 'bTeleport': True}
-
-
-def activate_editor_window():
-    """Bring the UE editor viewport forward before requesting a screenshot."""
-    if os.name != 'nt':
-        return
-    hwnd = ctypes.windll.user32.FindWindowW(None, 'environment - 虚幻编辑器')
-    if not hwnd:
-        return False
-    ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-    ctypes.windll.user32.SetForegroundWindow(hwnd)
-    time.sleep(.2)
-    # Do not let a minimized editor enter the long asynchronous screenshot
-    # wait.  This is the common cause of the old "UE screenshot timeout"
-    # reports: RC_Snapshot was accepted, but an editor viewport never ticked.
-    if ctypes.windll.user32.IsIconic(hwnd):
-        raise RuntimeError('UE 编辑器仍处于最小化状态，无法激活视口；请恢复编辑器窗口后重试')
-    return True
 
 
 def actor_exists(base, builder, actor_id):
@@ -91,48 +85,8 @@ def task_actor_ids(spec):
 
 
 def capture(rc, name, destination):
-    shot = ROOT / 'Saved/AIShots' / (name+'.png')
-    latest_shot = ROOT / 'Saved/AIShots' / 'latest.png'
-    previous = shot.stat().st_mtime_ns if shot.exists() else -1
-    previous_latest = latest_shot.stat().st_mtime_ns if latest_shot.exists() else -1
-    # UE Remote Control acknowledges the request before the editor has
-    # finished writing the PNG.  Under shader compilation or an editor
-    # refresh this can take considerably longer than one frame.
-    # Editor screenshots are only serviced while an editor viewport is
-    # active.  A browser request normally leaves the browser in the
-    # foreground, so activate the UE window immediately before submitting
-    # the request.  This also prevents the request from sitting in UE's
-    # Remote Control queue until the next manual click.
-    activate_editor_window()
-    last_error = None
-    for attempt in range(2):
-        try:
-            rc('RC_Snapshot',Name=name,ResX=960,ResY=540)
-            last_error = None
-            break
-        except Exception as error:
-            last_error = error
-            if attempt == 0:
-                time.sleep(1.0)
-    if last_error is not None:
-        raise last_error
-    deadline=time.monotonic()+90
-    while time.monotonic()<deadline:
-        # Some UE 5.6 builds ignore the requested name and write the editor
-        # capture to latest.png. Accept either path, but only after the
-        # request's mtime so an older browser image cannot be mistaken for a
-        # fresh scene.
-        for candidate, old_mtime in ((shot, previous), (latest_shot, previous_latest)):
-            try:
-                if candidate.stat().st_mtime_ns > old_mtime:
-                    with Image.open(candidate) as im:
-                        im.load()
-                        im.convert('RGB').save(destination)
-                    return
-            except (OSError, ValueError):
-                pass
-        time.sleep(.08)
-    raise TimeoutError('UE 在 90 秒内未生成新截图；请保持编辑器视口打开并关闭阻塞弹窗。')
+    return capture_snapshot(rc, name + '_' + str(time.time_ns()), destination)
+
 
 
 def encode_frames(frames_dir, output, *, fps=20, frame_count=None):
@@ -158,32 +112,20 @@ def setup_scene(spec, base, builder):
     rc=lambda fn,**p:call(fn,p,base,builder,generate_transaction=False)
     call('EditorSetGameView', {'bGameView':True,'ViewportConfigKey':'None'}, base,
          '/Script/LevelEditor.Default__LevelEditorSubsystem',generate_transaction=False)
-    # ``run_demo`` adds a large set of editor actors and can trigger a long
-    # autosave/shader-compilation pause on every request.  Reuse the existing
-    # Panda actor after the first successful setup; this is both faster and
-    # makes repeated natural-language jobs deterministic.  A fresh editor
-    # still takes the original creation path.
-    # One probe is enough to decide whether this is a cold editor.  Querying
-    # every actor here can itself block behind UE's autosave queue.
-    reuse_existing = actor_exists(base, builder, 'panda_demo_panda_robot')
-    if reuse_existing:
-        configure_preview_camera(base, builder)
-    else:
-        run_demo(base_url=base, object_path=builder, snapshot=False)
-    if not reuse_existing:
-        for actor_id in ['panda_demo_work_table','panda_demo_green_cube','panda_demo_blue_target','panda_demo_floor'] + [f'panda_demo_leg_{i}' for i in range(4)] + [f'panda_demo_task_{i}' for i in range(8)]:
-            try:
-                rc('RC_Remove',Id=actor_id)
-            except RuntimeError:
-                pass  # RC_Remove returns false when that prior task actor is absent.
-    def add(actor_id,position,size,color):
+    clear_pipeline_actors(base, builder)
+    run_demo(base_url=base, object_path=builder, snapshot=False)
+    reuse_existing = False
+    for actor_id in ['panda_demo_green_cube', 'panda_demo_blue_target']:
+        rc('RC_Remove', Id=actor_id)
+    def add(actor_id,position,size,color,shape="box"):
         x,y,z=world_to_ue(position).tolist()
-        rc('RC_AddAsset',Id=actor_id,AssetPath='/Engine/BasicShapes/Cube.Cube',X=x,Y=y,Z=z,
+        mesh={'box':'Cube','target':'Cube','cylinder':'Cylinder','sphere':'Sphere'}[shape]
+        rc('RC_AddAsset',Id=actor_id,AssetPath=f'/Engine/BasicShapes/{mesh}.{mesh}',X=x,Y=y,Z=z,
            Pitch=0,Yaw=0,Roll=0,ScaleX=size[0],ScaleY=size[1],ScaleZ=size[2],Color=dict(zip('RGBA',color)))
     workspace=spec['scene']['workspace']
     width,depth=workspace['size'][:2]
     height=workspace['table_height']
-    def update_or_add(actor_id, position, size, color):
+    def update_or_add(actor_id, position, size, color, shape="box"):
         if reuse_existing:
             x, y, z = world_to_ue(position).tolist()
             try:
@@ -195,19 +137,22 @@ def setup_scene(spec, base, builder):
                 # A stale actor ID means the editor is only partially warm;
                 # fall through to one explicit add operation.
                 pass
-        add(actor_id, position, size, color)
+        add(actor_id, position, size, color, shape)
     update_or_add('panda_demo_work_table',[0,0,height-.025],[width,depth,.05],[.48,.3,.15,1])
     for i,(x,y) in enumerate([(-width/2+.1,-depth/2+.1),(width/2-.1,-depth/2+.1),
                               (-width/2+.1,depth/2-.1),(width/2-.1,depth/2-.1)]):
         update_or_add(f'panda_demo_leg_{i}',[x,y,(height-.05)/2],[.04,.04,height-.05],[.15,.15,.15,1])
     mapping=task_actor_ids(spec)
     for obj in spec['scene']['objects']:
-        update_or_add(mapping[obj['id']],obj['pose'],obj['size'],obj['color'])
+        update_or_add(mapping[obj['id']],obj['pose'],obj['size'],obj['color'],obj['shape'])
     base_position=list(spec['robot']['base_pose'])
     if abs(base_position[2])<1e-6:
         base_position[2]=height
     x,y,z=world_to_ue(base_position).tolist()
     rc('RC_SetLocation',Id='panda_demo_panda_robot',X=x,Y=y,Z=z)
+    update_or_add('panda_demo_robot_mount',
+                  [base_position[0]-.04, base_position[1], base_position[2]/2],
+                  [.32, .30, base_position[2]], [.28,.28,.28,1])
     return rc
 
 
@@ -241,7 +186,7 @@ def render_trajectory(directory, progress):
     robot_path = actor_path(robot_id)
     object_ids = task_actor_ids(spec)
     object_paths = {key: actor_path(value) for key, value in object_ids.items()}
-    sizes = {obj['id']: obj['size'] for obj in metadata['scene_spec']['scene']['objects']}
+    definitions = {obj['id']: obj for obj in metadata['scene_spec']['scene']['objects']}
     components = json.loads(rc('RC_GetComponentInfo', Id=robot_id)['OutJson'])['components']
     material_ops = []
     for component in components:
@@ -265,30 +210,15 @@ def render_trajectory(directory, progress):
     frame_map = []
     reused_frame_count = 0
     last_frame = None
-    capture_stride = 5
+    capture_stride = 1
     # Let material compilation / the viewport settle before the first capture.
     time.sleep(2)
     for index, joints in enumerate(qpos):
-        # UE editor screenshots are much slower than the physics clock.  Keep
-        # the exported video at the trajectory FPS, while capturing a fresh
-        # UE frame every few observations and holding it between captures.
-        # The exact per-observation state remains in LeRobot/source GT.
-        if index and index % capture_stride and last_frame is not None:
-            frame = last_frame.copy()
-            filename = f'{index:05d}.png'
-            frame.save(frames_dir / filename)
-            reused_frame_count += 1
-            frame_map.append({'frame':index,'observation_index':index,'time_s':float(timestamps[index]),
-                              'file':'ue_frames/'+filename,'sha256':hashlib.sha256((frames_dir/filename).read_bytes()).hexdigest(),
-                              'reused':True})
-            if index % 5 == 0 or index == len(qpos)-1:
-                progress('ue_render', 'UE 正在渲染白模视频', frames=index+1, total_frames=len(qpos))
-            continue
         operations = [(robot_path, 'K2_SetActorTransform', transform(robot_base[index], [1,1,1])),
             (builder, 'RC_SetRobotJoints', {'Id': robot_id, **{f'J{i+1}':float(v) for i,v in enumerate(joints[:7])}}),
             (builder, 'RC_SetRobotGripper', {'Id': robot_id, 'OpeningMeters':float(np.clip(joints[7:9].sum(),0,.08))})]
         for key, path in object_paths.items():
-            operations.append((path, 'K2_SetActorTransform', transform(objects[key][index], sizes[key])))
+            operations.append((path, 'K2_SetActorTransform', object_transform(objects[key][index], definitions[key])))
         apply_operations(base, operations)
         actual = json.loads(rc('RC_GetRobotState', Id=robot_id)['ReturnValue'])
         error = float(np.linalg.norm(np.array(actual['tcp_world_cm']) - world_to_ue(tcp[index,:3])))
@@ -303,65 +233,13 @@ def render_trajectory(directory, progress):
             max_object_error = max(max_object_error, obj_error)
             if obj_error > .02:
                 raise ValueError(f'UE object pose mismatch: {key}, observation {index}')
-        time.sleep(.07)
-        # The web preview may be reading the previous screenshot on Windows.
-        # Never overwrite it: UE's image queue cannot delete an open file.
-        shot_name=f'{shot_prefix}_{index:05d}'
-        shot=ROOT/'Saved/AIShots'/(shot_name+'.png')
-        latest_shot=ROOT/'Saved/AIShots/latest.png'
-        previous=-1
-        previous_latest=latest_shot.stat().st_mtime_ns if latest_shot.exists() else -1
-        # UE's editor screenshot queue is asynchronous.  Give the viewport a
-        # full tick after pose updates and retry the request if the editor is
-        # still compiling or autosaving.  A 70 ms delay was too aggressive on
-        # cold or minimized editor windows and could silently drop frame 1.
-        time.sleep(.35)
-        activate_editor_window()
-        snapshot_error = None
-        for snapshot_attempt in range(3):
-            try:
-                rc('RC_Snapshot', Name=shot_name, ResX=960, ResY=540)
-                snapshot_error = None
-                break
-            except Exception as exc:
-                snapshot_error = exc
-                activate_editor_window()
-                time.sleep(1.0)
-        if snapshot_error is not None:
-            raise snapshot_error
-        # The first capture after RC_AddAsset can be delayed by UE shader
-        # compilation, asset registration, or an editor autosave.  In that
-        # case UE may write the requested PNG well after it has acknowledged
-        # RC_Snapshot.  Keep the normal per-frame path fast while allowing a
-        # cold editor enough time to finish its first capture.
-        first_timeout = float(os.environ.get('UE_FIRST_CAPTURE_TIMEOUT_S', '90'))
-        frame_timeout = float(os.environ.get('UE_CAPTURE_TIMEOUT_S', '15'))
-        deadline = time.monotonic() + (first_timeout if index == 0 else frame_timeout)
-        while True:
-            for candidate, old_mtime in ((shot, previous), (latest_shot, previous_latest)):
-                try:
-                    if candidate.stat().st_mtime_ns > old_mtime:
-                        with Image.open(candidate) as img:
-                            img.load()
-                            frame = img.convert('RGB')
-                        break
-                except (OSError, ValueError):
-                    pass
-            else:
-                frame = None
-            if frame is not None:
-                break
-            if time.monotonic() > deadline:
-                if last_frame is None:
-                    raise TimeoutError(
-                        f'UE screenshot timed out at observation {index} '
-                        f'after {first_timeout if index == 0 else frame_timeout:.0f}s; '
-                        'keep the UE editor viewport visible and close blocking dialogs'
-                    )
-                frame = last_frame.copy()
-                reused_frame_count += 1
-                break
-            time.sleep(.06)
+        shot_name = f'{shot_prefix}_{index:05d}'
+        filename = f'{index:05d}.png'
+        timeout = float(os.environ.get('UE_FIRST_CAPTURE_TIMEOUT_S' if index == 0 else 'UE_CAPTURE_TIMEOUT_S',
+                                      '90' if index == 0 else '15'))
+        capture_snapshot(rc, shot_name, frames_dir / filename, timeout=timeout)
+        with Image.open(frames_dir / filename) as img:
+            frame = img.convert('RGB')
         filename = f'{index:05d}.png'
         frame.save(frames_dir / filename)
         last_frame = frame.copy()
@@ -396,6 +274,7 @@ def render_trajectory(directory, progress):
         'max_tcp_error_cm':max_tcp_error,'max_object_position_error_cm':max_object_error,
         'max_joint_error_rad':max_joint_error,'robot_material_slots_overridden':len(material_ops),
         'reused_frame_count':reused_frame_count,'capture_stride':capture_stride,
+        'robot_mount':'static support pedestal; robot base and trajectory are unchanged',
         'gripper_note':'UE symmetric fingers use summed measured finger positions clipped to [0,.08] m; raw individual positions are preserved in HDF5',
         'frame_map':frame_map}
     write_json(directory / 'ue_render.json', manifest)

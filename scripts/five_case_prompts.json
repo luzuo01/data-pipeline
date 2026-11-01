@@ -1,0 +1,7 @@
+[
+"让 Panda 机械臂抓起桌面上的红色方块，放到右侧蓝色目标区域中，然后松开夹爪并撤离。",
+"桌面上有一个黄色圆柱和一个绿色目标区域。让 Franka 机械臂沿桌面把圆柱推到绿色区域，不要抓起它。",
+"桌面上有两个分开放置的方块：一个红色小方块和一个蓝色大方块。把红色小方块堆到蓝色大方块上，松开夹爪后保持稳定。",
+"Generate a scene with three cubes for Panda: a red cube, a green cube, and a yellow cube. Pick up only the green cube and place it in the blue target region. Leave the other two cubes untouched.",
+"让 Panda 拿起桌面上的杯子，把杯中的水倒入碗里，再用毛巾擦干桌面。"
+]

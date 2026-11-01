@@ -15,6 +15,7 @@ from typing import Any, Dict, Mapping
 
 from .scene_spec import default_scene_spec
 from .validator import _schema_errors
+from .local_intent import primitive_roles, reject_unsupported_request, COLORS
 
 
 def _load_local_env() -> None:
@@ -137,7 +138,7 @@ class SceneSpecPlanner:
 
         portal_task, portal_robot = portal_prompt_match(prompt)
         text = (prompt or "").lower()
-        explicit_portal = "portal-trace" in text
+        explicit_portal = "portal-trace" in text or "portal_trace" in text
         portal_signal = explicit_portal or portal_task in {
             "Wipe", "Door", "ToolHang", "NutAssemblySquareTight-v0", "NutAssemblyRoundTight-v0"
         }
@@ -200,8 +201,10 @@ class SceneSpecPlanner:
         shape_key = next((key for key in shape_aliases if key in text), "cube")
         shape, asset, dimensions = shape_aliases[shape_key]
 
-        number_words = {"one": 1, "a": 1, "一个": 1, "two": 2, "两个": 2, "两": 2, "three": 3, "三个": 3}
-        count = next((value for word, value in number_words.items() if word in text), 1)
+        number_words = {"one": 1, "一个": 1, "two": 2, "两个": 2, "两": 2, "three": 3, "三个": 3, "a": 1}
+        count = next((value for word, value in number_words.items()
+                      if (re.search(r"\b" + re.escape(word) + r"\b", text)
+                          if word.isascii() else word in text)), 1)
         is_stack = any(word in text for word in ("stack", "堆", "叠"))
         is_push = any(word in text for word in ("push", "推", "推动"))
         is_pick = any(word in text for word in ("pick", "place", "抓", "拿", "放", "搬"))
@@ -216,6 +219,11 @@ class SceneSpecPlanner:
                 mentioned_colors.append(list(color))
         object_color = mentioned_colors[0] if mentioned_colors else list(spec["scene"]["objects"][0]["color"])
         target_color = mentioned_colors[1] if len(mentioned_colors) > 1 else list(spec["scene"]["objects"][1]["color"])
+        descriptions, explicit_target, moving_color = primitive_roles(text)
+        if descriptions:
+            count = max(count, len(descriptions))
+        if explicit_target:
+            target_color = COLORS[explicit_target]
         workspace = spec["scene"]["workspace"]
         table_height = float(workspace["table_height"])
         objects: list[dict[str, Any]] = []
@@ -230,6 +238,15 @@ class SceneSpecPlanner:
             if any(word in text for word in ("right", "右")) and not any(word in text for word in ("left", "左")):
                 x = abs(x or 0.12)
             objects.append({"id": object_id, "asset": asset, "shape": shape, "size": list(dimensions), "pose": [x, 0.0, z], "color": list(object_color), "dynamic": True})
+        if descriptions:
+            for index, obj in enumerate(objects):
+                color, size_word = descriptions[min(index, len(descriptions)-1)]
+                obj["color"] = list(COLORS[color])
+                if size_word in {"large", "大"}:
+                    obj["size"] = [.06, .06, .06]
+                elif size_word in {"small", "小"}:
+                    obj["size"] = [.04, .04, .04]
+                obj["pose"][2] = table_height + obj["size"][2]/2
         target = dict(spec["scene"]["objects"][1])
         target["color"] = target_color
         target["pose"] = [0.22, 0.12, table_height + target["size"][2] / 2]
@@ -246,6 +263,14 @@ class SceneSpecPlanner:
             spec["task"] = {"template": "pick_and_place", "object_id": objects[0]["id"], "target_id": "target"}
             spec["success"] = [{"predicate": "object_in_target", "object_id": objects[0]["id"], "target_id": "target", "position_tolerance": 0.03}]
 
+        if moving_color:
+            selected = next((o for o in objects if o["dynamic"] and o["color"] == COLORS[moving_color]), None)
+            if selected:
+                spec["task"]["object_id"] = selected["id"]
+                if is_stack:
+                    support = next(o for o in objects if o["dynamic"] and o is not selected)
+                    spec["task"]["target_id"] = support["id"]
+                spec["success"][0].update(object_id=spec["task"]["object_id"], target_id=spec["task"]["target_id"])
         if any(word in text for word in ("left", "right", "左", "右")):
             spec["repair"] = {"locked_object_ids": [o["id"] for o in objects if o["dynamic"]]}
         recognized = ["robot", "shape", "count", "task", "colors"]
@@ -287,6 +312,7 @@ class SceneSpecPlanner:
             raise RuntimeError(f"SceneSpec planner request failed: {exc}") from exc
 
     def plan(self, prompt: str, *, seed: int = 0) -> Dict[str, Any]:
+        reject_unsupported_request(prompt)
         errors: list[str] = []
         format_repair = None
         try:
@@ -338,7 +364,7 @@ class SceneSpecPlanner:
             if normalized["robot"].get("control_mode") == "ue5_joint_pos":
                 normalized["robot"]["control_mode"] = "pd_joint_pos"
         if errors:
-            normalized.setdefault("planner", {})["warnings"] = errors
+            normalized.setdefault("planner", {}).setdefault("warnings", []).extend(errors)
             normalized["planner"]["source"] = "local_fallback"
         else:
             normalized.setdefault("planner", {})["source"] = "llm"

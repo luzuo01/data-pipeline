@@ -50,8 +50,8 @@ class TrajectoryGenerator:
             raise TrajectoryError("no trajectory skill for this task")
         definitions = {o["id"]: o for o in spec["scene"]["objects"]}
         obj_def, target_def = definitions[task["object_id"]], definitions[task["target_id"]]
-        if obj_def["shape"] != "box" or max(obj_def["size"][:2]) > .065:
-            raise TrajectoryError("current physical skills require a box with XY dimensions <= 6.5 cm")
+        if obj_def["shape"] not in ({"box", "cylinder"} if template == "push" else {"box"}) or max(obj_def["size"][:2]) > .065:
+            raise TrajectoryError("physical skills require XY dimensions <= 6.5 cm; pick/stack require a box, push supports boxes and upright cylinders")
         if template == "stack" and target_def["shape"] != "box":
             raise TrajectoryError("stack skill requires a flat box support")
         env.agent.set_control_mode("pd_joint_pos")
@@ -84,6 +84,11 @@ class TrajectoryGenerator:
             state = read_state(env)
             if not np.isfinite(state["qpos"]).all():
                 raise TrajectoryError("non-finite simulator state")
+            if template == "push":
+                moving_state = state["objects"][task["object_id"]]
+                initial_z = states[0]["objects"][task["object_id"]][2]
+                if state["grasped"] or moving_state[2] > initial_z + .008:
+                    raise TrajectoryError("push must not grasp or lift the object off the table")
             for oid, obj_state in state["objects"].items():
                 if not np.isfinite(obj_state).all():
                     raise TrajectoryError(f"non-finite object state: {oid}")
@@ -163,10 +168,10 @@ class TrajectoryGenerator:
                 raise TrajectoryError("push displacement must be at least 5 cm")
             direction = delta/length
             # Closed fingers push with their side; grasping/lifting is never used.
-            extent = .5*np.dot(np.abs(direction), obj_def["size"][:2])
+            extent = obj_def["size"][0]/2 if obj_def["shape"] == "cylinder" else .5*np.dot(np.abs(direction), obj_def["size"][:2])
             start = object_pos.copy()
             start[:2] -= direction*(extent+.045)
-            start[2] = table+obj_def["size"][2]*.65
+            start[2] = table+obj_def["size"][2]*(.35 if obj_def["shape"] == "cylinder" else .65)
             rot = np.column_stack(([direction[0],direction[1],0], [direction[1],-direction[0],0], [0,0,-1]))
             move([*start[:2], safe_z], -1, "push_approach", rot)
             move(start, -1, "push_descend", rot)

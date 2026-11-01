@@ -18,7 +18,7 @@ import imageio.v2 as imageio
 import numpy as np
 from PIL import Image
 
-from .ue_trajectory_render import ROOT, DEFAULT_OBJECT, activate_editor_window
+from .ue_trajectory_render import ROOT, DEFAULT_OBJECT
 
 
 def _call(fn, params, base, builder):
@@ -57,7 +57,6 @@ def _add_or_update(rc, actor_id, position, size, color):
 def _capture(rc, name, output, timeout=20):
     shot = ROOT / "Saved" / "AIShots" / f"{name}.png"
     old = shot.stat().st_mtime_ns if shot.exists() else -1
-    activate_editor_window()
     rc("RC_Snapshot", Name=name, ResX=960, ResY=540)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
